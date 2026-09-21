@@ -1,47 +1,39 @@
-
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home as HomeIcon } from 'lucide-react';
+import type { MissedPrompt } from '@/game/engine';
 
-interface LocationState {
+export interface EndState {
   score: number;
   totalPrompts: number;
-  missedPrompts: Array<{prompt: string, userInput: string}>;
+  missedPrompts: MissedPrompt[];
   hasErrors: boolean;
 }
 
 const End = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [visibleMissed, setVisibleMissed] = useState<number>(0);
-  const [showScore, setShowScore] = useState<boolean>(true);
-  const state = location.state as LocationState;
-  
+  const state = location.state as EndState | null;
+  const [visibleMissed, setVisibleMissed] = useState(0);
+  const [showScore, setShowScore] = useState(true);
+
   useEffect(() => {
-    if (!state) {
-      navigate('/');
-      return;
-    }
-
-    // First show the score for 2 seconds
-    const scoreTimer = setTimeout(() => {
-      setShowScore(false);
-      
-      // Then start showing missed prompts
-      if (state.hasErrors) {
-        const missedTimer = setInterval(() => {
-          setVisibleMissed(prev => {
-            if (prev < (state.missedPrompts?.length || 0)) return prev + 1;
-            clearInterval(missedTimer);
-            return prev;
-          });
-        }, 1000);
-        return () => clearInterval(missedTimer);
-      }
-    }, 2000);
-
-    return () => clearTimeout(scoreTimer);
+    if (!state) navigate('/');
   }, [state, navigate]);
+
+  // Show the score for 2 seconds first.
+  useEffect(() => {
+    const scoreTimer = setTimeout(() => setShowScore(false), 2000);
+    return () => clearTimeout(scoreTimer);
+  }, []);
+
+  // Then reveal missed prompts one per second.
+  const missedCount = state?.missedPrompts.length ?? 0;
+  useEffect(() => {
+    if (showScore || visibleMissed >= missedCount) return;
+    const revealTimer = setTimeout(() => setVisibleMissed(n => n + 1), 1000);
+    return () => clearTimeout(revealTimer);
+  }, [showScore, visibleMissed, missedCount]);
 
   if (!state) return null;
 
@@ -50,10 +42,11 @@ const End = () => {
       <button
         onClick={() => navigate('/')}
         className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-800 transition-colors"
+        aria-label="Back to home"
       >
         <HomeIcon className="w-6 h-6" />
       </button>
-      
+
       {showScore && (
         <div className="flex-1 flex items-center justify-center animate-fade-in">
           <h1 className="text-8xl font-bold gradient-text text-center animate-scale-in">
@@ -61,14 +54,13 @@ const End = () => {
           </h1>
         </div>
       )}
-      
+
       {!showScore && state.hasErrors && (
         <div className="mt-16 animate-fade-in">
           <h2 className="text-4xl font-bold gradient-text mb-8">What You Missed:</h2>
           <div className="space-y-8">
-            {state.missedPrompts.slice(0, visibleMissed).map((item, index) => (
-              <div key={index} className="flex justify-between items-start space-x-4 chat-message" 
-                   style={{ animationDelay: `${index * 0.5}s` }}>
+            {state.missedPrompts.slice(0, visibleMissed).map(item => (
+              <div key={item.id} className="flex justify-between items-start space-x-4 chat-message">
                 <div className="flex-1">
                   <p className="text-lg text-left text-red-400">Your input: {item.userInput}</p>
                 </div>
@@ -80,7 +72,7 @@ const End = () => {
           </div>
         </div>
       )}
-      
+
       {!showScore && !state.hasErrors && (
         <div className="flex-1 flex items-center justify-center animate-fade-in">
           <h1 className="text-8xl font-bold gradient-text text-center">
