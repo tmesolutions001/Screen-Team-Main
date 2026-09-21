@@ -71,9 +71,9 @@ export default {
 			},
 			boxShadow: {
 				glass: 'var(--glass-shadow)',
-				'glow-accent': '0 0 40px -8px var(--accent-2)',
-				'glow-ok': '0 0 32px -6px var(--ok)',
-				'glow-miss': '0 0 32px -6px var(--miss)'
+				'glow-accent': '0 0 40px -8px var(--accent-2), inset 0 1px 0 var(--glass-highlight)',
+				'glow-ok': '0 0 32px -6px var(--ok), inset 0 1px 0 var(--glass-highlight)',
+				'glow-miss': '0 0 32px -6px var(--miss), inset 0 1px 0 var(--glass-highlight)'
 			}
 		}
 	},

@@ -1,9 +1,8 @@
-
-import React from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Settings as SettingsIcon } from "lucide-react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Settings as SettingsIcon } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { IconButton } from '@/components/glass';
 
 interface SettingsProps {
   language: string;
@@ -12,18 +11,15 @@ interface SettingsProps {
   onVoiceToggle: (enabled: boolean) => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({
-  language,
-  voiceEnabled,
-  onLanguageChange,
-  onVoiceToggle,
-}) => {
+export const Settings = ({ language, onLanguageChange }: SettingsProps) => {
   return (
     <Sheet>
-      <SheetTrigger className="fixed top-4 left-4 p-2 rounded-full hover:bg-gray-800 transition-colors">
-        <SettingsIcon className="w-6 h-6" />
+      <SheetTrigger asChild>
+        <IconButton aria-label="Open settings" className="fixed top-4 left-4">
+          <SettingsIcon className="w-5 h-5" />
+        </IconButton>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[300px] bg-card">
+      <SheetContent side="left" className="w-[300px]">
         <SheetHeader>
           <SheetTitle>Settings</SheetTitle>
         </SheetHeader>

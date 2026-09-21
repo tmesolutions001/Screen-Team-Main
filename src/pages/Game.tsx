@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { GameHeader } from '@/components/GameHeader';
 import { Progress } from '@/components/ui/progress';
+import { GlassInput } from '@/components/glass';
 import { Timer } from 'lucide-react';
 import { parseMode } from '@/game/engine';
 import { ROUND_SECONDS, useGame } from '@/game/useGame';
@@ -84,18 +85,21 @@ const Game = () => {
           {/* Hidden visually but available for screen readers */}
           <h2 className="sr-only">{prompt}</h2>
           <form onSubmit={handleSubmit} className="w-full">
+            {/* Caret wrapper carries the input's font so its ch/em units line up */}
             <div
-              className="relative w-full custom-caret"
+              className="relative w-full custom-caret text-6xl font-bold font-mono"
               style={{ '--caret-ch': `${input.length}ch` } as React.CSSProperties}
             >
-              <input
+              <GlassInput
                 ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full px-6 py-3 text-6xl font-bold font-mono bg-transparent rounded-full gradient-border focus:outline-none gradient-text caret-transparent"
+                className="px-6 py-3 text-gradient caret-transparent"
                 aria-label="Type the answer for the prompt"
+                autoComplete="off"
+                spellCheck={false}
               />
             </div>
           </form>

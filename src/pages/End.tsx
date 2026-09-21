@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home as HomeIcon } from 'lucide-react';
 import type { MissedPrompt } from '@/game/engine';
+import { IconButton } from '@/components/glass';
 
 export interface EndState {
   score: number;
@@ -39,13 +40,9 @@ const End = () => {
 
   return (
     <div className="min-h-screen flex flex-col p-4 relative">
-      <button
-        onClick={() => navigate('/')}
-        className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-800 transition-colors"
-        aria-label="Back to home"
-      >
-        <HomeIcon className="w-6 h-6" />
-      </button>
+      <IconButton onClick={() => navigate('/')} className="absolute top-4 right-4" aria-label="Back to home">
+        <HomeIcon className="w-5 h-5" />
+      </IconButton>
 
       {showScore && (
         <div className="flex-1 flex items-center justify-center animate-fade-in">
