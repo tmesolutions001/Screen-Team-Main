@@ -1,29 +1,74 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------------
+ * Design tokens
+ * Dark-only, "frosted matte liquid glass". Everything visual reads from here.
+ * ------------------------------------------------------------------------- */
 @layer base {
   :root {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
-    --card: 0 0% 3%;
-    --card-foreground: 0 0% 100%;
-    --popover: 0 0% 3%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* shadcn-compatible base palette (kept so Sheet/Radio/Label still theme) */
+    --background: 240 12% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 214 74% 59%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 8% 14%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 8% 14%;
+    --muted-foreground: 240 6% 66%;
+    --accent: 240 8% 14%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 100% / 0.1;
+    --input: 0 0% 100% / 0.1;
+    --ring: 214 74% 59%;
+
+    /* Accent gradient: blue -> violet -> coral (carried over from the original UI) */
+    --accent-1: #4a90e2;
+    --accent-2: #9b6bff;
+    --accent-3: #ff6b6b;
+    --accent-warm-1: #ff7e5f;
+    --accent-warm-2: #fd9644;
+    --accent-warm-3: #feb47b;
+    --gradient-accent: linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3));
+    --gradient-warm: linear-gradient(90deg, var(--accent-warm-1), var(--accent-warm-2), var(--accent-warm-3));
+
+    /* Semantic feedback */
+    --ok: #4ade80;
+    --miss: #f87171;
+
+    /* Glass surfaces */
+    --glass-fill: rgba(255, 255, 255, 0.06);
+    --glass-fill-hover: rgba(255, 255, 255, 0.09);
+    --glass-fill-strong: rgba(255, 255, 255, 0.12);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-border-strong: rgba(255, 255, 255, 0.22);
+    --glass-highlight: rgba(255, 255, 255, 0.35); /* top-edge specular line */
+    --glass-blur: 24px;
+    --glass-blur-strong: 40px;
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 var(--glass-highlight);
+
+    /* Pointer spotlight (set per element by useSpotlight in Step 3) */
+    --spot-x: 50%;
+    --spot-y: 50%;
+    --spot-size: 220px;
+    --spot-color: rgba(255, 255, 255, 0.18);
+    --spot-opacity: 0;
+
+    --radius: 1.25rem;
+    --radius-pill: 9999px;
+
+    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   }
 }
 
@@ -31,89 +76,200 @@
   * {
     @apply border-border;
   }
+  html {
+    color-scheme: dark;
+  }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01', 'tnum';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--accent-2) 45%, transparent);
   }
 }
 
-.gradient-text {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-[#4A90E2] via-[#9B6BFF] to-[#FF6B6B];
+/* ---------------------------------------------------------------------------
+ * Ambient background layer (see components/Background.tsx)
+ * Blobs move on `transform` only so they stay on the compositor.
+ * ------------------------------------------------------------------------- */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 120%, rgba(74, 144, 226, 0.08), transparent 60%),
+    hsl(var(--background));
 }
 
-.gradient-border {
-  @apply relative;
+.ambient__blob {
+  position: absolute;
+  width: 55vmax;
+  height: 55vmax;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.55;
+  will-change: transform;
+  animation: blob-drift 28s ease-in-out infinite alternate;
+}
+.ambient__blob--1 {
+  top: -20vmax; left: -10vmax;
+  background: radial-gradient(circle at 30% 30%, var(--accent-1), transparent 65%);
+}
+.ambient__blob--2 {
+  bottom: -25vmax; right: -10vmax;
+  background: radial-gradient(circle at 60% 60%, var(--accent-2), transparent 65%);
+  animation-duration: 34s;
+  animation-delay: -12s;
+}
+.ambient__blob--3 {
+  top: 20vh; right: 15vw;
+  width: 35vmax; height: 35vmax;
+  opacity: 0.35;
+  background: radial-gradient(circle at 50% 50%, var(--accent-3), transparent 65%);
+  animation-duration: 40s;
+  animation-delay: -20s;
 }
 
+@keyframes blob-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  33%  { transform: translate3d(8vw, -6vh, 0) scale(1.08); }
+  66%  { transform: translate3d(-5vw, 7vh, 0) scale(0.95); }
+  100% { transform: translate3d(6vw, 4vh, 0) scale(1.04); }
+}
+
+/* Matte finish: fine monochrome noise over the blobs. */
+.ambient__noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 200px 200px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient__blob { animation: none; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Glass utilities
+ * `.glass` is the one place backdrop-filter is applied; nest `.glass-flat`
+ * inside it for a cheaper translucent fill without a second blur pass.
+ * ------------------------------------------------------------------------- */
+@layer components {
+  .glass {
+    position: relative;
+    background: var(--glass-fill);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  }
+  .glass-strong {
+    backdrop-filter: blur(var(--glass-blur-strong)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(180%);
+    background: var(--glass-fill-strong);
+    border-color: var(--glass-border-strong);
+  }
+  .glass-flat {
+    position: relative;
+    background: var(--glass-fill);
+    border: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+
+  /* Pointer spotlight layer. Reads --spot-* vars that useSpotlight writes. */
+  .spotlight::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: var(--spot-opacity);
+    background: radial-gradient(
+      var(--spot-size) circle at var(--spot-x) var(--spot-y),
+      var(--spot-color),
+      transparent 60%
+    );
+    transition: opacity 250ms ease;
+  }
+
+  .text-gradient {
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-warm {
+    background: var(--gradient-warm);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .focus-ring {
+    @apply outline-none;
+  }
+  .focus-ring:focus-visible {
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px var(--accent-2);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Legacy helpers still used by Home/Game/End until Steps 3 & 5 replace them.
+ * ------------------------------------------------------------------------- */
+.gradient-text { @apply text-gradient; }
+
+.gradient-border { @apply relative; }
 .gradient-border::before {
   content: '';
-  @apply absolute inset-0 rounded-full bg-gradient-to-r from-[#4A90E2] via-[#9B6BFF] to-[#FF6B6B] -z-10;
+  @apply absolute inset-0 rounded-full -z-10;
+  background: var(--gradient-accent);
   margin: -2px;
 }
 
-.gradient-button {
-  @apply relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-medium transition-all bg-gradient-to-r from-[#4A90E2] via-[#9B6BFF] to-[#FF6B6B] rounded-full hover:bg-white;
-}
-
+.gradient-button,
 .gradient-button-warm {
-  @apply relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-medium transition-all bg-gradient-to-r from-[#FF7E5F] via-[#FD9644] to-[#FEB47B] rounded-full hover:bg-white;
+  @apply relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-medium transition-all rounded-full;
+  background: var(--gradient-accent);
 }
+.gradient-button-warm { background: var(--gradient-warm); }
 
 .chat-message {
   @apply opacity-0 transform translate-y-4;
   animation: messageAppear 0.5s ease forwards;
 }
-
-@keyframes messageAppear {
-  to {
-    @apply opacity-100 translate-y-0;
-  }
-}
+@keyframes messageAppear { to { @apply opacity-100 translate-y-0; } }
 
 @keyframes fade-in {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes scale-in {
-  0% {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
+.animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+.animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
 
-.animate-fade-in {
-  animation: fade-in 0.5s ease-out forwards;
-}
-
-.animate-scale-in {
-  animation: scale-in 0.3s ease-out forwards;
-}
-
-/* Custom gradient blinking caret for the game input */
-.custom-caret {
-  position: relative;
-  caret-color: transparent;
-}
+/* Gradient blinking caret for the game input */
+.custom-caret { position: relative; caret-color: transparent; }
 .custom-caret::after {
   content: '';
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   width: 2px;
-  height: 1em; /* match text line-height for same visual size */
+  height: 1em;
   border-radius: 1px;
-  background-image: linear-gradient(to bottom, #4A90E2, #9B6BFF, #FF6B6B);
-  left: calc(1.5rem + var(--caret-ch, 0ch)); /* 1.5rem = px-6 padding-left; attaches right after text */
+  background-image: linear-gradient(to bottom, var(--accent-1), var(--accent-2), var(--accent-3));
+  left: calc(1.5rem + var(--caret-ch, 0ch));
   animation: caret-blink 1s steps(1, end) infinite;
   pointer-events: none;
   z-index: 5;

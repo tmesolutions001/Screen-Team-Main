@@ -46,7 +46,34 @@ export default {
 				card: {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
-				}
+				},
+				glass: {
+					DEFAULT: 'var(--glass-fill)',
+					hover: 'var(--glass-fill-hover)',
+					strong: 'var(--glass-fill-strong)',
+					border: 'var(--glass-border)',
+					'border-strong': 'var(--glass-border-strong)'
+				},
+				ok: 'var(--ok)',
+				miss: 'var(--miss)'
+			},
+			fontFamily: {
+				sans: ['var(--font-sans)'],
+				mono: ['var(--font-mono)']
+			},
+			borderRadius: {
+				glass: 'var(--radius)',
+				pill: 'var(--radius-pill)'
+			},
+			backdropBlur: {
+				glass: 'var(--glass-blur)',
+				'glass-strong': 'var(--glass-blur-strong)'
+			},
+			boxShadow: {
+				glass: 'var(--glass-shadow)',
+				'glow-accent': '0 0 40px -8px var(--accent-2)',
+				'glow-ok': '0 0 32px -6px var(--ok)',
+				'glow-miss': '0 0 32px -6px var(--miss)'
 			}
 		}
 	},
