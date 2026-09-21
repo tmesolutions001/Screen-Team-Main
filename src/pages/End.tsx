@@ -1,15 +1,34 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home as HomeIcon } from 'lucide-react';
-import type { MissedPrompt } from '@/game/engine';
-import { IconButton } from '@/components/glass';
+import { Home as HomeIcon, RotateCcw } from 'lucide-react';
+import type { GameMode, MissedPrompt } from '@/game/engine';
+import { GlassButton, GlassPanel, IconButton } from '@/components/glass';
 
 export interface EndState {
+  mode: GameMode;
   score: number;
   totalPrompts: number;
   missedPrompts: MissedPrompt[];
   hasErrors: boolean;
 }
+
+const MODE_LABEL: Record<GameMode, string> = {
+  classic: 'Classic',
+  'chapter-verse': 'Chapter–Verse',
+  book: 'Book',
+  warmup: 'Warm Up',
+};
+
+const modePath = (mode: GameMode) => (mode === 'classic' ? '/game' : `/game/${mode}`);
+
+const Stat = ({ label, value, tone }: { label: string; value: string; tone?: 'ok' | 'miss' }) => (
+  <GlassPanel flat className="px-4 py-3 text-center min-w-[5.5rem]">
+    <p className={`text-2xl font-semibold tabular-nums ${tone === 'ok' ? 'text-ok' : tone === 'miss' ? 'text-miss' : ''}`}>
+      {value}
+    </p>
+    <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+  </GlassPanel>
+);
 
 const End = () => {
   const navigate = useNavigate();
@@ -28,54 +47,87 @@ const End = () => {
     return () => clearTimeout(scoreTimer);
   }, []);
 
-  // Then reveal missed prompts one per second.
+  // Then reveal missed prompts one at a time.
   const missedCount = state?.missedPrompts.length ?? 0;
   useEffect(() => {
     if (showScore || visibleMissed >= missedCount) return;
-    const revealTimer = setTimeout(() => setVisibleMissed(n => n + 1), 1000);
+    const revealTimer = setTimeout(() => setVisibleMissed(n => n + 1), 600);
     return () => clearTimeout(revealTimer);
   }, [showScore, visibleMissed, missedCount]);
 
   if (!state) return null;
 
+  const { mode, score, totalPrompts, missedPrompts, hasErrors } = state;
+  const accuracy = totalPrompts ? Math.round((score / totalPrompts) * 100) : 0;
+
   return (
-    <div className="min-h-screen flex flex-col p-4 relative">
-      <IconButton onClick={() => navigate('/')} className="absolute top-4 right-4" aria-label="Back to home">
+    <div className="min-h-screen flex items-center justify-center p-6 relative">
+      <IconButton onClick={() => navigate('/')} className="fixed top-4 right-4" aria-label="Back to home">
         <HomeIcon className="w-5 h-5" />
       </IconButton>
 
-      {showScore && (
-        <div className="flex-1 flex items-center justify-center animate-fade-in">
-          <h1 className="text-8xl font-bold gradient-text text-center animate-scale-in">
-            {state.score}/{state.totalPrompts}
+      {showScore ? (
+        <div className="text-center animate-fade-in">
+          <h1 className="text-8xl font-bold tracking-tight text-gradient animate-scale-in tabular-nums">
+            {score}/{totalPrompts}
           </h1>
+          <p className="mt-3 text-lg text-muted-foreground">{accuracy}% accuracy</p>
         </div>
-      )}
+      ) : (
+        <GlassPanel className="w-full max-w-2xl p-8 animate-fade-in">
+          <header className="flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                Round complete · {MODE_LABEL[mode]}
+              </p>
+              <h1 className="mt-1 text-6xl font-bold tracking-tight text-gradient tabular-nums leading-none">
+                {hasErrors ? `${score}/${totalPrompts}` : 'Perfect round'}
+              </h1>
+            </div>
+            <div className="flex gap-3">
+              <Stat label="Accuracy" value={`${accuracy}%`} />
+              <Stat label="Correct" value={String(score)} tone="ok" />
+              <Stat label="Missed" value={String(missedPrompts.length)} tone={hasErrors ? 'miss' : undefined} />
+            </div>
+          </header>
 
-      {!showScore && state.hasErrors && (
-        <div className="mt-16 animate-fade-in">
-          <h2 className="text-4xl font-bold gradient-text mb-8">What You Missed:</h2>
-          <div className="space-y-8">
-            {state.missedPrompts.slice(0, visibleMissed).map(item => (
-              <div key={item.id} className="flex justify-between items-start space-x-4 chat-message">
-                <div className="flex-1">
-                  <p className="text-lg text-left text-red-400">Your input: {item.userInput}</p>
-                </div>
-                <div className="flex-1">
-                  <p className="text-lg text-right text-green-400">Prompt: {item.prompt}</p>
-                </div>
+          {hasErrors ? (
+            <section className="mt-8" aria-label="What you missed">
+              <div className="grid grid-cols-[2.5rem_1fr_1fr] px-3 pb-2 text-xs uppercase tracking-wider text-muted-foreground border-b border-glass-border">
+                <span>#</span>
+                <span>Prompt</span>
+                <span>You typed</span>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              <ol className="divide-y divide-glass-border">
+                {missedPrompts.slice(0, visibleMissed).map((item, i) => (
+                  <li
+                    key={item.id}
+                    className="grid grid-cols-[2.5rem_1fr_1fr] items-baseline px-3 py-3 font-mono text-lg chat-message"
+                  >
+                    <span className="text-sm text-muted-foreground tabular-nums">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span className="text-foreground">{item.prompt}</span>
+                    <span className="text-miss">{item.userInput.trim() || '—'}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : (
+            <p className="mt-8 text-muted-foreground">
+              Every prompt answered correctly — {totalPrompts} for {totalPrompts}.
+            </p>
+          )}
 
-      {!showScore && !state.hasErrors && (
-        <div className="flex-1 flex items-center justify-center animate-fade-in">
-          <h1 className="text-8xl font-bold gradient-text text-center">
-            Perfect Score!
-          </h1>
-        </div>
+          <footer className="mt-8 flex justify-end gap-3">
+            <GlassButton onClick={() => navigate('/')}>
+              <HomeIcon className="w-4 h-4" /> Home
+            </GlassButton>
+            <GlassButton variant="accent" onClick={() => navigate(modePath(mode))}>
+              <RotateCcw className="w-4 h-4" /> Play again
+            </GlassButton>
+          </footer>
+        </GlassPanel>
       )}
     </div>
   );

@@ -17,7 +17,8 @@ const formatTime = (seconds: number) => {
 const Game = () => {
   const navigate = useNavigate();
   const { mode } = useParams<{ mode?: string }>();
-  const { prompt, score, total, missed, timeLeft, isOver, submit, spaceSubmits } = useGame(parseMode(mode));
+  const gameMode = parseMode(mode);
+  const { prompt, score, total, missed, timeLeft, isOver, submit, spaceSubmits } = useGame(gameMode);
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -30,6 +31,7 @@ const Game = () => {
     if (!isOver) return;
     const transitionTimer = setTimeout(() => {
       const state: EndState = {
+        mode: gameMode,
         score,
         missedPrompts: missed,
         totalPrompts: total,
