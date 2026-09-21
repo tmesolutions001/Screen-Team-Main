@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { Home as HomeIcon, RotateCcw } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Home as HomeIcon, LayoutGrid, RotateCcw } from 'lucide-react';
 import { MODE_LABEL, type GameMode, type MissedPrompt } from '@/game/engine';
 import { GlassButton, GlassPanel, IconButton } from '@/components/glass';
 import { rowVariants, springs, swapProps } from '@/lib/motion';
@@ -35,7 +35,7 @@ const End = () => {
   const [showScore, setShowScore] = useState(true);
 
   useEffect(() => {
-    if (!state) navigate('/');
+    if (!state) navigate('/simulator');
   }, [state, navigate]);
 
   // Show the score for 2 seconds first.
@@ -59,7 +59,7 @@ const End = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 relative">
-      <IconButton onClick={() => navigate('/')} className="fixed top-4 right-4" aria-label="Back to home">
+      <IconButton onClick={() => navigate('/')} className="fixed top-4 right-4" aria-label="Back to Screen Team App">
         <HomeIcon className="w-5 h-5" />
       </IconButton>
 
@@ -124,8 +124,8 @@ const End = () => {
             )}
 
             <footer className="mt-8 flex justify-end gap-3">
-              <GlassButton onClick={() => navigate('/')}>
-                <HomeIcon className="w-4 h-4" /> Home
+              <GlassButton onClick={() => navigate('/simulator')}>
+                <LayoutGrid className="w-4 h-4" /> Modes
               </GlassButton>
               <GlassButton variant="accent" onClick={() => navigate(modePath(mode))}>
                 <RotateCcw className="w-4 h-4" /> Play again

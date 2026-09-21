@@ -1,44 +1,41 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings } from '@/components/Settings';
-import { GlassButton } from '@/components/glass';
+import { motion } from 'motion/react';
+import { FileMusic, Keyboard } from 'lucide-react';
+import { GlassTile } from '@/components/glass';
+import { staggerContainer, staggerItem } from '@/lib/motion';
 
+/** App home: entry point to each Screen Team tool. */
 const Home = () => {
   const navigate = useNavigate();
-  const [language, setLanguage] = useState('en');
-  // Keep the state but it's no longer toggleable from UI
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
-      <Settings
-        language={language}
-        voiceEnabled={voiceEnabled}
-        onLanguageChange={setLanguage}
-        onVoiceToggle={setVoiceEnabled}
-      />
-      <div className="text-center space-y-8">
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">V1.0</p>
-          <h1 className="text-5xl font-bold tracking-tight text-gradient">
-            Welcome to the<br />Screen Team Simulator
-          </h1>
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <motion.div variants={staggerContainer} className="w-full max-w-2xl space-y-10">
+        <motion.header variants={staggerItem} className="text-center space-y-3">
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">V1.0</p>
+          <h1 className="text-6xl font-bold tracking-tight text-gradient leading-tight">Screen Team App</h1>
+          <p className="text-lg text-muted-foreground">Tools for the booth.</p>
+        </motion.header>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Not wired up yet: the formatter arrives in a later phase. */}
+          <GlassTile
+            variants={staggerItem}
+            icon={<FileMusic className="h-6 w-6" />}
+            title="Song Formatter"
+            description="Clean up and reformat song lyrics for slides."
+            badge="Coming soon"
+            inactive
+          />
+          <GlassTile
+            variants={staggerItem}
+            icon={<Keyboard className="h-6 w-6" />}
+            title="Simulator"
+            description="Rapid-fire scripture reference drills."
+            onClick={() => navigate('/simulator')}
+          />
         </div>
-        <div className="grid grid-cols-1 gap-4 max-w-sm mx-auto">
-          <GlassButton variant="accent" size="lg" onClick={() => navigate('/game')} aria-label="Start Classic mode">
-            Classic
-          </GlassButton>
-          <GlassButton variant="accent" size="lg" onClick={() => navigate('/game/chapter-verse')} aria-label="Start Chapter-Verse mode">
-            Chapter–Verse
-          </GlassButton>
-          <GlassButton variant="accent" size="lg" onClick={() => navigate('/game/book')} aria-label="Start Book mode">
-            Book
-          </GlassButton>
-          <GlassButton variant="warm" size="lg" onClick={() => navigate('/game/warmup')} aria-label="Start Warm Up mode">
-            Warm Up
-          </GlassButton>
-        </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

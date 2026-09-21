@@ -4,6 +4,8 @@
  * the next spoken prompt.
  */
 
+import { getSettings } from './settings';
+
 let ctx: AudioContext | null = null;
 
 const getContext = (): AudioContext | null => {
@@ -73,4 +75,8 @@ export const playWrong = () => {
   playTone(ac, { type: 'sawtooth', freq: 170, endFreq: 110, duration: 0.2, gain: 0.14, lowpass: 700 });
 };
 
-export const playResult = (correct: boolean) => (correct ? playCorrect() : playWrong());
+export const playResult = (correct: boolean) => {
+  if (!getSettings().sfx) return;
+  if (correct) playCorrect();
+  else playWrong();
+};

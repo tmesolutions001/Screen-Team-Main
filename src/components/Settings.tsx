@@ -1,42 +1,34 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Settings as SettingsIcon } from 'lucide-react';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { IconButton } from '@/components/glass';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { GlassSwitch, IconButton } from '@/components/glass';
+import { updateSettings, useSettings } from '@/lib/settings';
 
-interface SettingsProps {
-  language: string;
-  voiceEnabled: boolean;
-  onLanguageChange: (value: string) => void;
-  onVoiceToggle: (enabled: boolean) => void;
-}
+export const Settings = () => {
+  const { sfx } = useSettings();
 
-export const Settings = ({ language, onLanguageChange }: SettingsProps) => {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <IconButton aria-label="Open settings" className="fixed top-4 left-4">
+        <IconButton aria-label="Open settings" className="fixed top-4 right-4">
           <SettingsIcon className="w-5 h-5" />
         </IconButton>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[300px]">
+      <SheetContent side="right" className="w-[320px]">
         <SheetHeader>
           <SheetTitle>Settings</SheetTitle>
+          <SheetDescription>Saved on this computer.</SheetDescription>
         </SheetHeader>
-        <div className="space-y-6 mt-6">
-          <div className="space-y-4">
-            <Label>Language</Label>
-            <RadioGroup value={language} onValueChange={onLanguageChange}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="en" id="en" />
-                <Label htmlFor="en">English</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="es" id="es" />
-                <Label htmlFor="es">Spanish</Label>
-              </div>
-            </RadioGroup>
+
+        <div className="mt-8 flex items-center justify-between gap-4">
+          <div>
+            <p id="setting-sfx" className="font-medium">Sound effects</p>
+            <p className="text-sm text-muted-foreground">Chime for a correct answer, buzz for a miss.</p>
           </div>
+          <GlassSwitch
+            checked={sfx}
+            onCheckedChange={(checked) => updateSettings({ sfx: checked })}
+            aria-labelledby="setting-sfx"
+          />
         </div>
       </SheetContent>
     </Sheet>

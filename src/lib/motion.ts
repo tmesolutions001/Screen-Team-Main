@@ -42,6 +42,21 @@ export const swapProps = {
   transition: springs.smooth,
 } as const;
 
+/**
+ * Staggered entrance. These share the page wrapper's variant labels, so a
+ * container just needs `variants={staggerContainer}`: it inherits "enter" from
+ * the page transition and cascades it to its items.
+ */
+export const staggerContainer: Variants = {
+  initial: {},
+  enter: { transition: { staggerChildren: 0.06, delayChildren: 0.04 } },
+};
+
+export const staggerItem: Variants = {
+  initial: { opacity: 0, y: 16 },
+  enter: { opacity: 1, y: 0, transition: springs.smooth },
+};
+
 /** List rows that step in one after another. */
 export const rowVariants: Variants = {
   initial: { opacity: 0, y: 12 },

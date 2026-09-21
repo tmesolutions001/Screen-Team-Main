@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { Background } from "./components/Background";
 import { pageVariants, springs } from "./lib/motion";
 import Home from "./pages/Home";
+import Simulator from "./pages/Simulator";
 import Game from "./pages/Game";
 import End from "./pages/End";
 
@@ -28,6 +29,7 @@ const AnimatedRoutes = () => {
         >
           <Routes location={location}>
             <Route path="/" element={<Home />} />
+            <Route path="/simulator" element={<Simulator />} />
             <Route path="/game" element={<Game />} />
             <Route path="/game/:mode" element={<Game />} />
             <Route path="/end" element={<End />} />

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { useAnimate, useReducedMotion } from 'motion/react';
-import { Timer } from 'lucide-react';
-import { GlassPanel } from '@/components/glass';
+import { AnimatePresence, motion, useAnimate, useReducedMotion } from 'motion/react';
+import { Timer, X } from 'lucide-react';
+import { GlassPanel, IconButton } from '@/components/glass';
 import { Progress } from '@/components/ui/progress';
 import { springs } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,8 @@ import type { Feedback } from '@/game/useGame';
 
 interface GameHeaderProps {
   modeLabel: string;
+  /** Warm Up only: the segment currently being drilled. */
+  segmentLabel?: string;
   score: number;
   total: number;
   /** Formatted mm:ss */
@@ -19,6 +21,7 @@ interface GameHeaderProps {
   progress: number;
   /** Latest answer result; flashes the score green or red. */
   feedback: Feedback | null;
+  onQuit: () => void;
 }
 
 const Label = ({ children }: { children: React.ReactNode }) => (
@@ -31,7 +34,9 @@ const glowStyle = (color: string): React.CSSProperties => ({
 });
 
 /** Floating HUD: mode, timer and score in one glass bar with the round progress. */
-export const GameHeader = ({ modeLabel, score, total, timeLeft, timeLow, progress, feedback }: GameHeaderProps) => {
+export const GameHeader = ({
+  modeLabel, segmentLabel, score, total, timeLeft, timeLow, progress, feedback, onQuit,
+}: GameHeaderProps) => {
   const [scoreRef, animate] = useAnimate<HTMLDivElement>();
   const reduceMotion = useReducedMotion();
 
@@ -50,9 +55,31 @@ export const GameHeader = ({ modeLabel, score, total, timeLeft, timeLow, progres
     <header className="fixed top-4 inset-x-4 z-10 flex justify-center">
       <GlassPanel className="w-full max-w-4xl px-6 pt-3 pb-4">
         <div className="grid grid-cols-3 items-end">
-          <div>
-            <Label>Mode</Label>
-            <p className="text-2xl font-semibold tracking-tight">{modeLabel}</p>
+          <div className="flex items-end gap-3">
+            {/* tabIndex -1: reachable by mouse, but Tab never pulls focus off the answer field */}
+            <IconButton onClick={onQuit} tabIndex={-1} aria-label="Quit round" className="h-9 w-9 shrink-0">
+              <X className="h-4 w-4" />
+            </IconButton>
+            <div className="min-w-0">
+              <Label>Mode</Label>
+              <p className="flex items-baseline gap-2 text-2xl font-semibold tracking-tight whitespace-nowrap">
+                {modeLabel}
+                <AnimatePresence mode="popLayout">
+                  {segmentLabel && (
+                    <motion.span
+                      key={segmentLabel}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={springs.snappy}
+                      className="text-base font-medium text-[var(--accent-warm-2)]"
+                    >
+                      {segmentLabel}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </p>
+            </div>
           </div>
 
           <div className="text-center">

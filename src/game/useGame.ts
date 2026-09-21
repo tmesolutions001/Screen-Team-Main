@@ -33,6 +33,8 @@ export function useGame(mode: GameMode, active = true) {
   const [endsAt, setEndsAt] = useState<number | null>(null);
   const [isOver, setIsOver] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  // The mode currently being drilled: differs from `mode` only during Warm Up's segments.
+  const [activeMode, setActiveMode] = useState<GameMode>(mode);
   const deadlineRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -50,6 +52,7 @@ export function useGame(mode: GameMode, active = true) {
       mode
     );
     setFeedback(null);
+    setActiveMode(mode);
 
     setGame(null);
     setPrompt('');
@@ -90,7 +93,11 @@ export function useGame(mode: GameMode, active = true) {
       const secs = Math.ceil(remainingMs / 1000);
       setTimeLeft(secs);
 
-      if (mode === 'warmup') game.setMode(warmupSegment(secs));
+      if (mode === 'warmup') {
+        const segment = warmupSegment(secs);
+        game.setMode(segment);
+        setActiveMode(segment);
+      }
 
       if (secs === 0) {
         game.cancelSpeech();
@@ -116,5 +123,5 @@ export function useGame(mode: GameMode, active = true) {
     [game]
   );
 
-  return { ready: game !== null, prompt, score, total, missed, timeLeft, endsAt, isOver, feedback, submit, spaceSubmits };
+  return { ready: game !== null, prompt, score, total, missed, timeLeft, endsAt, isOver, feedback, activeMode, submit, spaceSubmits };
 }
