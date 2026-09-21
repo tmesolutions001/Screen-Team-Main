@@ -1,6 +1,8 @@
-import { forwardRef, type ButtonHTMLAttributes } from 'react';
+import { forwardRef, type ReactNode } from 'react';
+import { motion, type HTMLMotionProps } from 'motion/react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
+import { springs } from '@/lib/motion';
 import { useSpotlight } from '@/hooks/useSpotlight';
 
 const glassButton = cva(
@@ -8,8 +10,9 @@ const glassButton = cva(
     'glass spotlight focus-ring',
     'inline-flex items-center justify-center gap-2 rounded-pill select-none',
     'font-semibold tracking-tight text-foreground',
-    'transition-[background-color,transform,box-shadow] duration-200 ease-out',
-    'hover:bg-glass-hover active:scale-[0.98]',
+    // transform is owned by the press/hover springs, so it is not CSS-transitioned
+    'transition-[background-color,box-shadow] duration-200 ease-out',
+    'hover:bg-glass-hover',
     'disabled:pointer-events-none disabled:opacity-40',
   ],
   {
@@ -31,18 +34,20 @@ const glassButton = cva(
 );
 
 export interface GlassButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof glassButton> {}
+  extends Omit<HTMLMotionProps<'button'>, 'children'>,
+    VariantProps<typeof glassButton> {
+  children?: ReactNode;
+}
 
 /**
- * Frosted pill button with a pointer-tracking spotlight.
+ * Frosted pill button with a pointer-tracking spotlight and spring press.
  * Children are wrapped in a <span> so gradient variants can clip text to it.
  */
 export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
   ({ className, variant, size, type = 'button', children, ...props }, forwardedRef) => {
     const spotRef = useSpotlight<HTMLButtonElement>();
     return (
-      <button
+      <motion.button
         ref={(node) => {
           spotRef.current = node;
           if (typeof forwardedRef === 'function') forwardedRef(node);
@@ -50,10 +55,13 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
         }}
         type={type}
         className={cn(glassButton({ variant, size }), className)}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.97 }}
+        transition={springs.snappy}
         {...props}
       >
         <span className="relative inline-flex items-center gap-2">{children}</span>
-      </button>
+      </motion.button>
     );
   }
 );

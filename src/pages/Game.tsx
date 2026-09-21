@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AnimatePresence, motion, useIsPresent } from 'motion/react';
 import { GameHeader } from '@/components/GameHeader';
 import { GlassInput } from '@/components/glass';
 import { MODE_LABEL, parseMode, type GameMode } from '@/game/engine';
 import { ROUND_SECONDS, useGame } from '@/game/useGame';
+import { swapProps } from '@/lib/motion';
 import type { EndState } from './End';
 
 const LOW_TIME_SECONDS = 10;
@@ -30,7 +32,9 @@ const Game = () => {
   const navigate = useNavigate();
   const { mode } = useParams<{ mode?: string }>();
   const gameMode = parseMode(mode);
-  const { prompt, score, total, missed, timeLeft, isOver, submit, spaceSubmits } = useGame(gameMode);
+  // False once this page starts animating out; stops the clock and speech straight away.
+  const isPresent = useIsPresent();
+  const { prompt, score, total, missed, timeLeft, isOver, submit, spaceSubmits } = useGame(gameMode, isPresent);
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -75,7 +79,7 @@ const Game = () => {
   const accuracy = total ? Math.round((score / total) * 100) : 0;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6">
+    <div className="relative min-h-screen flex flex-col items-center justify-center p-6">
       <GameHeader
         modeLabel={MODE_LABEL[gameMode]}
         score={score}
@@ -85,42 +89,44 @@ const Game = () => {
         progress={progressValue}
       />
 
-      {isOver ? (
-        <div className="text-center animate-fade-in">
-          <h2 className="text-8xl font-bold tracking-tight text-gradient tabular-nums">
-            {score}/{total}
-          </h2>
-          <p className="mt-3 text-lg text-muted-foreground">{accuracy}% accuracy</p>
-        </div>
-      ) : (
-        <main className="w-full max-w-4xl space-y-5">
-          {/* The prompt is spoken, not shown; kept in the DOM for screen readers */}
-          <h2 className="sr-only">{prompt}</h2>
-          <p className="text-center text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Listen · type the reference
-          </p>
-          <form onSubmit={handleSubmit} className="w-full">
-            {/* Caret wrapper carries the input's font so its ch/em units line up */}
-            <div
-              className="relative w-full custom-caret text-6xl font-bold font-mono"
-              style={{ '--caret-ch': `${input.length}ch` } as React.CSSProperties}
-            >
-              <GlassInput
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="px-6 py-5 text-gradient caret-transparent"
-                aria-label="Type the answer for the prompt"
-                autoComplete="off"
-                spellCheck={false}
-              />
-            </div>
-          </form>
-          <p className="text-center text-sm text-muted-foreground">{HINT[gameMode]}</p>
-        </main>
-      )}
+      <AnimatePresence mode="popLayout" initial={false}>
+        {isOver ? (
+          <motion.div key="score" {...swapProps} className="text-center">
+            <h2 className="text-8xl font-bold tracking-tight text-gradient tabular-nums">
+              {score}/{total}
+            </h2>
+            <p className="mt-3 text-lg text-muted-foreground">{accuracy}% accuracy</p>
+          </motion.div>
+        ) : (
+          <motion.main key="stage" {...swapProps} className="w-full max-w-4xl space-y-5">
+            {/* The prompt is spoken, not shown; kept in the DOM for screen readers */}
+            <h2 className="sr-only">{prompt}</h2>
+            <p className="text-center text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Listen · type the reference
+            </p>
+            <form onSubmit={handleSubmit} className="w-full">
+              {/* Caret wrapper carries the input's font so its ch/em units line up */}
+              <div
+                className="relative w-full custom-caret text-6xl font-bold font-mono"
+                style={{ '--caret-ch': `${input.length}ch` } as React.CSSProperties}
+              >
+                <GlassInput
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="px-6 py-5 text-gradient caret-transparent"
+                  aria-label="Type the answer for the prompt"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
+            </form>
+            <p className="text-center text-sm text-muted-foreground">{HINT[gameMode]}</p>
+          </motion.main>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

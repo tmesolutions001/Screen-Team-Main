@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import { Home as HomeIcon, RotateCcw } from 'lucide-react';
 import { MODE_LABEL, type GameMode, type MissedPrompt } from '@/game/engine';
 import { GlassButton, GlassPanel, IconButton } from '@/components/glass';
+import { rowVariants, springs, swapProps } from '@/lib/motion';
 
 export interface EndState {
   mode: GameMode;
@@ -11,6 +13,8 @@ export interface EndState {
   missedPrompts: MissedPrompt[];
   hasErrors: boolean;
 }
+
+const MotionPanel = motion.create(GlassPanel);
 
 const modePath = (mode: GameMode) => (mode === 'classic' ? '/game' : `/game/${mode}`);
 
@@ -59,71 +63,77 @@ const End = () => {
         <HomeIcon className="w-5 h-5" />
       </IconButton>
 
-      {showScore ? (
-        <div className="text-center animate-fade-in">
-          <h1 className="text-8xl font-bold tracking-tight text-gradient animate-scale-in tabular-nums">
-            {score}/{totalPrompts}
-          </h1>
-          <p className="mt-3 text-lg text-muted-foreground">{accuracy}% accuracy</p>
-        </div>
-      ) : (
-        <GlassPanel className="w-full max-w-2xl p-8 animate-fade-in">
-          <header className="flex flex-wrap items-end justify-between gap-6">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Round complete · {MODE_LABEL[mode]}
-              </p>
-              <h1 className="mt-1 text-6xl font-bold tracking-tight text-gradient tabular-nums leading-none">
-                {hasErrors ? `${score}/${totalPrompts}` : totalPrompts ? 'Perfect round' : 'No answers'}
-              </h1>
-            </div>
-            <div className="flex gap-3">
-              <Stat label="Accuracy" value={`${accuracy}%`} />
-              <Stat label="Correct" value={String(score)} tone="ok" />
-              <Stat label="Missed" value={String(missedPrompts.length)} tone={hasErrors ? 'miss' : undefined} />
-            </div>
-          </header>
-
-          {hasErrors ? (
-            <section className="mt-8" aria-label="What you missed">
-              <div className="grid grid-cols-[2.5rem_1fr_1fr] px-3 pb-2 text-xs uppercase tracking-wider text-muted-foreground border-b border-glass-border">
-                <span>#</span>
-                <span>Prompt</span>
-                <span>You typed</span>
+      <AnimatePresence mode="popLayout" initial={false}>
+        {showScore ? (
+          <motion.div key="score" {...swapProps} className="text-center">
+            <h1 className="text-8xl font-bold tracking-tight text-gradient tabular-nums">
+              {score}/{totalPrompts}
+            </h1>
+            <p className="mt-3 text-lg text-muted-foreground">{accuracy}% accuracy</p>
+          </motion.div>
+        ) : (
+          <MotionPanel key="results" {...swapProps} className="w-full max-w-2xl p-8">
+            <header className="flex flex-wrap items-end justify-between gap-6">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Round complete · {MODE_LABEL[mode]}
+                </p>
+                <h1 className="mt-1 text-6xl font-bold tracking-tight text-gradient tabular-nums leading-none">
+                  {hasErrors ? `${score}/${totalPrompts}` : totalPrompts ? 'Perfect round' : 'No answers'}
+                </h1>
               </div>
-              <ol className="divide-y divide-glass-border">
-                {missedPrompts.slice(0, visibleMissed).map((item, i) => (
-                  <li
-                    key={item.id}
-                    className="grid grid-cols-[2.5rem_1fr_1fr] items-baseline px-3 py-3 font-mono text-lg chat-message"
-                  >
-                    <span className="text-sm text-muted-foreground tabular-nums">
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <span className="text-foreground">{item.prompt}</span>
-                    <span className="text-miss">{item.userInput.trim() || '—'}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ) : (
-            <p className="mt-8 text-muted-foreground">
-              {totalPrompts
-                ? `Every prompt answered correctly — ${totalPrompts} for ${totalPrompts}.`
-                : 'No prompts were answered this round.'}
-            </p>
-          )}
+              <div className="flex gap-3">
+                <Stat label="Accuracy" value={`${accuracy}%`} />
+                <Stat label="Correct" value={String(score)} tone="ok" />
+                <Stat label="Missed" value={String(missedPrompts.length)} tone={hasErrors ? 'miss' : undefined} />
+              </div>
+            </header>
 
-          <footer className="mt-8 flex justify-end gap-3">
-            <GlassButton onClick={() => navigate('/')}>
-              <HomeIcon className="w-4 h-4" /> Home
-            </GlassButton>
-            <GlassButton variant="accent" onClick={() => navigate(modePath(mode))}>
-              <RotateCcw className="w-4 h-4" /> Play again
-            </GlassButton>
-          </footer>
-        </GlassPanel>
-      )}
+            {hasErrors ? (
+              <section className="mt-8" aria-label="What you missed">
+                <div className="grid grid-cols-[2.5rem_1fr_1fr] px-3 pb-2 text-xs uppercase tracking-wider text-muted-foreground border-b border-glass-border">
+                  <span>#</span>
+                  <span>Prompt</span>
+                  <span>You typed</span>
+                </div>
+                <ol className="divide-y divide-glass-border">
+                  {missedPrompts.slice(0, visibleMissed).map((item, i) => (
+                    <motion.li
+                      key={item.id}
+                      variants={rowVariants}
+                      initial="initial"
+                      animate="enter"
+                      transition={springs.smooth}
+                      className="grid grid-cols-[2.5rem_1fr_1fr] items-baseline px-3 py-3 font-mono text-lg"
+                    >
+                      <span className="text-sm text-muted-foreground tabular-nums">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <span className="text-foreground">{item.prompt}</span>
+                      <span className="text-miss">{item.userInput.trim() || '—'}</span>
+                    </motion.li>
+                  ))}
+                </ol>
+              </section>
+            ) : (
+              <p className="mt-8 text-muted-foreground">
+                {totalPrompts
+                  ? `Every prompt answered correctly — ${totalPrompts} for ${totalPrompts}.`
+                  : 'No prompts were answered this round.'}
+              </p>
+            )}
+
+            <footer className="mt-8 flex justify-end gap-3">
+              <GlassButton onClick={() => navigate('/')}>
+                <HomeIcon className="w-4 h-4" /> Home
+              </GlassButton>
+              <GlassButton variant="accent" onClick={() => navigate(modePath(mode))}>
+                <RotateCcw className="w-4 h-4" /> Play again
+              </GlassButton>
+            </footer>
+          </MotionPanel>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

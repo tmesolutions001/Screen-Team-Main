@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BibleGame, type GameMode, type MissedPrompt } from './engine';
 
 export const ROUND_SECONDS = 60;
@@ -10,7 +10,12 @@ const warmupSegment = (secondsLeft: number): GameMode =>
   secondsLeft > 15 ? 'chapter-verse' :
   'classic';
 
-export function useGame(mode: GameMode) {
+/**
+ * @param active false while the page is animating out: the clock and speech
+ *   stop immediately instead of running on until the exit animation unmounts
+ *   the page. If the exit is reversed, the round resumes against the same deadline.
+ */
+export function useGame(mode: GameMode, active = true) {
   const [game, setGame] = useState<BibleGame | null>(null);
   const [prompt, setPrompt] = useState('');
   const [score, setScore] = useState(0);
@@ -20,6 +25,7 @@ export function useGame(mode: GameMode) {
   // performance.now() timestamp the round ends at; lets the UI animate the timer continuously.
   const [endsAt, setEndsAt] = useState<number | null>(null);
   const [isOver, setIsOver] = useState(false);
+  const deadlineRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,6 +42,7 @@ export function useGame(mode: GameMode) {
     setTimeLeft(ROUND_SECONDS);
     setEndsAt(null);
     setIsOver(false);
+    deadlineRef.current = null;
 
     newGame.loadXmlDocument('/BookInfo.xml').then(() => {
       if (cancelled) return;
@@ -51,8 +58,13 @@ export function useGame(mode: GameMode) {
 
   useEffect(() => {
     if (!game) return;
+    if (!active) {
+      game.cancelSpeech();
+      return;
+    }
 
-    const deadline = performance.now() + ROUND_SECONDS * 1000;
+    deadlineRef.current ??= performance.now() + ROUND_SECONDS * 1000;
+    const deadline = deadlineRef.current;
     setEndsAt(deadline);
     let timeout: ReturnType<typeof setTimeout>;
 
@@ -74,13 +86,13 @@ export function useGame(mode: GameMode) {
 
     tick();
     return () => clearTimeout(timeout);
-  }, [game, mode]);
+  }, [game, mode, active]);
 
   const submit = useCallback((input: string) => {
-    if (!game || isOver) return;
+    if (!game || isOver || !active) return;
     game.handleInput(input);
     setTotal(game.getTotalPrompts());
-  }, [game, isOver]);
+  }, [game, isOver, active]);
 
   const spaceSubmits = useCallback(
     (input: string) => game?.spaceAction(input) === 'submit',

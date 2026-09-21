@@ -260,43 +260,6 @@
   }
 }
 
-/* ---------------------------------------------------------------------------
- * Legacy helpers still used by Home/Game/End until Steps 3 & 5 replace them.
- * ------------------------------------------------------------------------- */
-.gradient-text { @apply text-gradient; }
-
-.gradient-border { @apply relative; }
-.gradient-border::before {
-  content: '';
-  @apply absolute inset-0 rounded-full -z-10;
-  background: var(--gradient-accent);
-  margin: -2px;
-}
-
-.gradient-button,
-.gradient-button-warm {
-  @apply relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-medium transition-all rounded-full;
-  background: var(--gradient-accent);
-}
-.gradient-button-warm { background: var(--gradient-warm); }
-
-.chat-message {
-  @apply opacity-0 transform translate-y-4;
-  animation: messageAppear 0.5s ease forwards;
-}
-@keyframes messageAppear { to { @apply opacity-100 translate-y-0; } }
-
-@keyframes fade-in {
-  0% { opacity: 0; transform: translateY(10px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-@keyframes scale-in {
-  0% { transform: scale(0.95); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-.animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
-.animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
-
 /* Gradient blinking caret for the game input */
 .custom-caret { position: relative; caret-color: transparent; }
 .custom-caret::after {
