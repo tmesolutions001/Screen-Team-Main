@@ -21,6 +21,7 @@ export const bookVariations = {
     "Psalms": ["p", "ps", "psa", "psal", "psalm", "psalms"],
     "Proverbs": ["pr", "pro", "prov", "prove", "prover", "proverb", "proverbs"],
     "Ecclesiastes": ["ec", "ecc", "eccl", "eccle", "eccles", "ecclesi", "ecclesia", "ecclesias", "ecclesiast", "ecclesiaste", "ecclesiastes"],
+    "Song of Solomon": ["s", "so", "son", "song", "song o", "song of", "song of s", "song of so", "song of sol", "song of solo", "song of solom", "song of solomo", "song of solomon"],
     "Isaiah": ["i", "is", "isa", "isai", "isaia", "isaiah"],
     "Jeremiah": ["je", "jer", "jere", "jerem", "jeremi", "jeremia", "jeremiah"],
     "Lamentations": ["la", "lam", "lame", "lamen", "lament", "lamenta", "lamentat", "lamentati", "lamentatio", "lamentation", "lamentations"],
@@ -69,11 +70,15 @@ export const bookVariations = {
 
 export const validateInput = (input: string, prompt: string): boolean => {
     // Split the prompt into book and reference
-    const [promptBook, promptReference] = prompt.split(' ');
+    // The reference is the last word and everything before it is the book. Splitting on
+    // the first space broke every multi-word book ("2 Kings", "Song of Solomon").
+    const splitAt = prompt.lastIndexOf(' ');
+    const promptBook = prompt.slice(0, splitAt);
+    const promptReference = prompt.slice(splitAt + 1);
     const [promptChapter, promptVerse] = promptReference.split(':');
 
     // Split user input into parts (assuming format like "gen 1 1" or "genesis 1 1")
-    const inputParts = input.toLowerCase().trim().split(' ');
+    const inputParts = input.toLowerCase().trim().split(/\s+/);
     if (inputParts.length < 3) return false;
 
     // Extract book, chapter, and verse from input
