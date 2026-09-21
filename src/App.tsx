@@ -15,7 +15,9 @@ const AnimatedRoutes = () => {
   const location = useLocation();
   return (
     <div className="relative">
-      <AnimatePresence mode="popLayout" initial={false}>
+      {/* No initial={false}: that flag is inherited by every motion element in
+          the first page and would silently disable their enter animations. */}
+      <AnimatePresence mode="popLayout">
         <motion.div
           key={location.pathname}
           variants={pageVariants}

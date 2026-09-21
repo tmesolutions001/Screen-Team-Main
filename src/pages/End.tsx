@@ -63,7 +63,7 @@ const End = () => {
         <HomeIcon className="w-5 h-5" />
       </IconButton>
 
-      <AnimatePresence mode="popLayout" initial={false}>
+      <AnimatePresence mode="popLayout">
         {showScore ? (
           <motion.div key="score" {...swapProps} className="text-center">
             <h1 className="text-8xl font-bold tracking-tight text-gradient tabular-nums">

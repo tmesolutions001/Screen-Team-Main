@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BibleGame, type GameMode, type MissedPrompt } from './engine';
+import { playResult } from '@/lib/sfx';
 
 export const ROUND_SECONDS = 60;
+
+/** Result of the latest answer; `id` changes on every answer so repeats re-trigger UI feedback. */
+export interface Feedback {
+  id: number;
+  correct: boolean;
+}
 
 /** Warm-up cycles through the other modes in 15-second segments. */
 const warmupSegment = (secondsLeft: number): GameMode =>
@@ -25,14 +32,24 @@ export function useGame(mode: GameMode, active = true) {
   // performance.now() timestamp the round ends at; lets the UI animate the timer continuously.
   const [endsAt, setEndsAt] = useState<number | null>(null);
   const [isOver, setIsOver] = useState(false);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
   const deadlineRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const newGame = new BibleGame(
-      { onPrompt: setPrompt, onScore: setScore, onMissed: setMissed },
+      {
+        onPrompt: setPrompt,
+        onScore: setScore,
+        onMissed: setMissed,
+        onResult: (correct) => {
+          playResult(correct);
+          setFeedback((prev) => ({ id: (prev?.id ?? 0) + 1, correct }));
+        },
+      },
       mode
     );
+    setFeedback(null);
 
     setGame(null);
     setPrompt('');
@@ -99,5 +116,5 @@ export function useGame(mode: GameMode, active = true) {
     [game]
   );
 
-  return { ready: game !== null, prompt, score, total, missed, timeLeft, endsAt, isOver, submit, spaceSubmits };
+  return { ready: game !== null, prompt, score, total, missed, timeLeft, endsAt, isOver, feedback, submit, spaceSubmits };
 }

@@ -13,6 +13,8 @@ export interface GameCallbacks {
   onPrompt: (prompt: string) => void;
   onScore: (score: number) => void;
   onMissed: (missed: MissedPrompt[]) => void;
+  /** Fired once per submitted answer, for UI feedback. */
+  onResult: (correct: boolean) => void;
 }
 
 export const MODE_LABEL: Record<GameMode, string> = {
@@ -168,6 +170,7 @@ export class BibleGame {
       ];
       this.callbacks.onMissed(this.incorrectInputs);
     }
+    this.callbacks.onResult(correct);
 
     this.numPrompts++;
     this.generateNewPrompt();

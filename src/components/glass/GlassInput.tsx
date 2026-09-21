@@ -13,7 +13,7 @@ export interface GlassInputProps extends InputHTMLAttributes<HTMLInputElement> {
  * wrapper because inputs can't render pseudo-elements.
  */
 export const GlassInput = forwardRef<HTMLInputElement, GlassInputProps>(
-  ({ className, wrapperClassName, wrapperStyle, ...props }, ref) => {
+  ({ className, wrapperClassName, wrapperStyle, children, ...props }, ref) => {
     const spotRef = useSpotlight<HTMLDivElement>();
     return (
       <div
@@ -34,6 +34,8 @@ export const GlassInput = forwardRef<HTMLInputElement, GlassInputProps>(
           )}
           {...props}
         />
+        {/* Optional overlay rendered inside the glass, above the input */}
+        {children}
       </div>
     );
   }
