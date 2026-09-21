@@ -16,8 +16,9 @@ const glassButton = cva(
     variants: {
       variant: {
         glass: '',
-        accent: 'spotlight-accent hover:shadow-glow-accent [&>span]:text-gradient',
-        warm: 'spotlight-warm hover:shadow-[0_0_40px_-8px_var(--accent-warm-2)] [&>span]:text-gradient-warm',
+        // Gradient labels make currentColor transparent, so icons get an explicit colour.
+        accent: 'spotlight-accent hover:shadow-glow-accent [&>span]:text-gradient [&_svg]:text-[var(--accent-1)]',
+        warm: 'spotlight-warm hover:shadow-[0_0_40px_-8px_var(--accent-warm-2)] [&>span]:text-gradient-warm [&_svg]:text-[var(--accent-warm-1)]',
       },
       size: {
         sm: 'h-9 px-4 text-sm',
@@ -51,7 +52,7 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
         className={cn(glassButton({ variant, size }), className)}
         {...props}
       >
-        <span className="relative">{children}</span>
+        <span className="relative inline-flex items-center gap-2">{children}</span>
       </button>
     );
   }

@@ -17,10 +17,12 @@ const Progress = React.forwardRef<
     {...props}
   >
     <ProgressPrimitive.Indicator
-      className={cn(
-        "h-full w-full flex-1 bg-gradient-to-r from-[#4A90E2] via-[#9B6BFF] to-[#FF6B6B] transition-all",
-      )}
-      style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+      // Linear 1s transform glide so the bar moves continuously between second ticks.
+      className="h-full w-full flex-1 rounded-full transition-transform duration-1000 ease-linear"
+      style={{
+        background: 'var(--gradient-accent)',
+        transform: `translateX(-${100 - (value || 0)}%)`,
+      }}
     />
   </ProgressPrimitive.Root>
 ))

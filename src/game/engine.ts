@@ -15,7 +15,14 @@ export interface GameCallbacks {
   onMissed: (missed: MissedPrompt[]) => void;
 }
 
-export const parseMode = (value?: string): GameMode =>
+export const MODE_LABEL: Record<GameMode, string> = {
+  classic: 'Classic',
+  'chapter-verse': 'Chapter–Verse',
+  book: 'Book',
+  warmup: 'Warm Up',
+};
+
+export const parseMode =(value?: string): GameMode =>
   (GAME_MODES as readonly string[]).includes(value ?? '') ? (value as GameMode) : 'classic';
 
 /** What the space bar should do in the current mode. */

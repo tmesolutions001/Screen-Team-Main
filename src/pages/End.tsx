@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home as HomeIcon, RotateCcw } from 'lucide-react';
-import type { GameMode, MissedPrompt } from '@/game/engine';
+import { MODE_LABEL, type GameMode, type MissedPrompt } from '@/game/engine';
 import { GlassButton, GlassPanel, IconButton } from '@/components/glass';
 
 export interface EndState {
@@ -11,13 +11,6 @@ export interface EndState {
   missedPrompts: MissedPrompt[];
   hasErrors: boolean;
 }
-
-const MODE_LABEL: Record<GameMode, string> = {
-  classic: 'Classic',
-  'chapter-verse': 'Chapter–Verse',
-  book: 'Book',
-  warmup: 'Warm Up',
-};
 
 const modePath = (mode: GameMode) => (mode === 'classic' ? '/game' : `/game/${mode}`);
 
@@ -81,7 +74,7 @@ const End = () => {
                 Round complete · {MODE_LABEL[mode]}
               </p>
               <h1 className="mt-1 text-6xl font-bold tracking-tight text-gradient tabular-nums leading-none">
-                {hasErrors ? `${score}/${totalPrompts}` : 'Perfect round'}
+                {hasErrors ? `${score}/${totalPrompts}` : totalPrompts ? 'Perfect round' : 'No answers'}
               </h1>
             </div>
             <div className="flex gap-3">
@@ -115,7 +108,9 @@ const End = () => {
             </section>
           ) : (
             <p className="mt-8 text-muted-foreground">
-              Every prompt answered correctly — {totalPrompts} for {totalPrompts}.
+              {totalPrompts
+                ? `Every prompt answered correctly — ${totalPrompts} for ${totalPrompts}.`
+                : 'No prompts were answered this round.'}
             </p>
           )}
 
