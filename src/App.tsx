@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { Background } from "./components/Background";
 import { pageVariants, springs } from "./lib/motion";
@@ -33,6 +33,7 @@ const AnimatedRoutes = () => {
             <Route path="/game" element={<Game />} />
             <Route path="/game/:mode" element={<Game />} />
             <Route path="/end" element={<End />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </motion.div>
       </AnimatePresence>

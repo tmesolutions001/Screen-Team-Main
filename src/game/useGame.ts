@@ -29,8 +29,6 @@ export function useGame(mode: GameMode, active = true) {
   const [total, setTotal] = useState(0);
   const [missed, setMissed] = useState<MissedPrompt[]>([]);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
-  // performance.now() timestamp the round ends at; lets the UI animate the timer continuously.
-  const [endsAt, setEndsAt] = useState<number | null>(null);
   const [isOver, setIsOver] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   // The mode currently being drilled: differs from `mode` only during Warm Up's segments.
@@ -60,7 +58,6 @@ export function useGame(mode: GameMode, active = true) {
     setTotal(0);
     setMissed([]);
     setTimeLeft(ROUND_SECONDS);
-    setEndsAt(null);
     setIsOver(false);
     deadlineRef.current = null;
 
@@ -85,7 +82,6 @@ export function useGame(mode: GameMode, active = true) {
 
     deadlineRef.current ??= performance.now() + ROUND_SECONDS * 1000;
     const deadline = deadlineRef.current;
-    setEndsAt(deadline);
     let timeout: ReturnType<typeof setTimeout>;
 
     const tick = () => {
@@ -123,5 +119,5 @@ export function useGame(mode: GameMode, active = true) {
     [game]
   );
 
-  return { ready: game !== null, prompt, score, total, missed, timeLeft, endsAt, isOver, feedback, activeMode, submit, spaceSubmits };
+  return { prompt, score, total, missed, timeLeft, isOver, feedback, activeMode, submit, spaceSubmits };
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useIsPresent } from 'motion/react';
 import { GameHeader } from '@/components/GameHeader';
@@ -62,6 +62,9 @@ const Game = () => {
     return () => clearTimeout(transitionTimer);
   }, [isOver, navigate, gameMode, score, missed, total]);
 
+  // Stable identity so the memoized HUD is not re-rendered by every keystroke.
+  const quit = useCallback(() => navigate('/simulator'), [navigate]);
+
   const submitInput = () => {
     submit(input);
     setInput('');
@@ -93,7 +96,7 @@ const Game = () => {
         timeLow={timeLeft <= LOW_TIME_SECONDS && !isOver}
         progress={progressValue}
         feedback={feedback}
-        onQuit={() => navigate('/simulator')}
+        onQuit={quit}
       />
 
       <AnimatePresence mode="popLayout">

@@ -1,31 +1,25 @@
-
-import * as React from "react"
-import * as ProgressPrimitive from "@radix-ui/react-progress"
+import type { HTMLAttributes } from "react"
 
 import { cn } from "@/lib/utils"
 
-const Progress = React.forwardRef<
-  React.ElementRef<typeof ProgressPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>
->(({ className, value, ...props }, ref) => (
-  <ProgressPrimitive.Root
-    ref={ref}
-    className={cn(
-      "relative h-4 w-full overflow-hidden rounded-full bg-secondary",
-      className
-    )}
+interface ProgressProps extends HTMLAttributes<HTMLDivElement> {
+  /** 0–100 */
+  value: number
+}
+
+/** Accent progress bar. Moves on transform with a linear 1s glide, so per-second updates read as continuous. */
+export const Progress = ({ value, className, ...props }: ProgressProps) => (
+  <div
+    role="progressbar"
+    aria-valuemin={0}
+    aria-valuemax={100}
+    aria-valuenow={Math.round(value)}
+    className={cn("relative h-4 w-full overflow-hidden rounded-full", className)}
     {...props}
   >
-    <ProgressPrimitive.Indicator
-      // Linear 1s transform glide so the bar moves continuously between second ticks.
-      className="h-full w-full flex-1 rounded-full transition-transform duration-1000 ease-linear"
-      style={{
-        background: 'var(--gradient-accent)',
-        transform: `translateX(-${100 - (value || 0)}%)`,
-      }}
+    <div
+      className="h-full w-full rounded-full transition-transform duration-1000 ease-linear"
+      style={{ background: "var(--gradient-accent)", transform: `translateX(-${100 - value}%)` }}
     />
-  </ProgressPrimitive.Root>
-))
-Progress.displayName = ProgressPrimitive.Root.displayName
-
-export { Progress }
+  </div>
+)

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, type CSSProperties, type KeyboardEventHandler } from 'react';
+import { forwardRef, useEffect, useLayoutEffect, useRef, type CSSProperties, type KeyboardEventHandler } from 'react';
 import { motion, useAnimate, useReducedMotion } from 'motion/react';
 import { GlassInput } from '@/components/glass';
 import { springs } from '@/lib/motion';
@@ -16,7 +16,8 @@ interface AnswerFieldProps {
 // tweens (a spring could overshoot into an invalid negative blur); only the
 // rise is sprung. Removal is instant, so rapid typing and submits never wait.
 const charInitial = { opacity: 0, filter: 'blur(8px)', y: 4 };
-const charAnimate = { opacity: 1, filter: 'blur(0px)', y: 0 };
+// transitionEnd drops the filter once settled, so a finished letter stops being its own filter layer.
+const charAnimate = { opacity: 1, filter: 'blur(0px)', y: 0, transitionEnd: { filter: 'none' } };
 const charTransition = {
   ...springs.snappy,
   opacity: { duration: 0.16, ease: 'easeOut' },
@@ -37,6 +38,16 @@ export const AnswerField = forwardRef<HTMLInputElement, AnswerFieldProps>(
   ({ value, onValueChange, onKeyDown, feedback }, ref) => {
     const [scope, animate] = useAnimate<HTMLDivElement>();
     const reduceMotion = useReducedMotion();
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const displayRef = useRef<HTMLDivElement>(null);
+
+    // When text outgrows the field the real input scrolls to keep the cursor in
+    // view; mirror that offset so the display layer stays aligned with it.
+    useLayoutEffect(() => {
+      if (inputRef.current && displayRef.current) {
+        displayRef.current.style.transform = `translateX(${-inputRef.current.scrollLeft}px)`;
+      }
+    }, [value]);
 
     // Same pattern as the HUD score: pre-rendered rings, opacity-only, and each
     // new answer replaces the running animation so rapid answers never stack.
@@ -54,7 +65,11 @@ export const AnswerField = forwardRef<HTMLInputElement, AnswerFieldProps>(
       // Font lives on the wrapper so the input and the display layer share metrics.
       <div ref={scope} className="w-full text-6xl font-bold font-mono">
         <GlassInput
-          ref={ref}
+          ref={(node) => {
+            inputRef.current = node;
+            if (typeof ref === 'function') ref(node);
+            else if (ref) ref.current = node;
+          }}
           type="text"
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
@@ -67,7 +82,7 @@ export const AnswerField = forwardRef<HTMLInputElement, AnswerFieldProps>(
           <span data-ring="ok" aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-0" style={ringStyle('var(--ok)')} />
           <span data-ring="miss" aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-0" style={ringStyle('var(--miss)')} />
           <div className="answer-display" aria-hidden="true">
-            <div className="flex h-full items-center whitespace-pre pl-6">
+            <div ref={displayRef} className="flex h-full items-center whitespace-pre pl-6">
               {Array.from(value).map((char, i) => (
                 <motion.span
                   // Index + character: appending mounts only the new letter.

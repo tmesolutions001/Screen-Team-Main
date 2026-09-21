@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import { AnimatePresence, motion, useAnimate, useReducedMotion } from 'motion/react';
 import { Timer, X } from 'lucide-react';
 import { GlassPanel, IconButton } from '@/components/glass';
@@ -33,10 +33,13 @@ const glowStyle = (color: string): React.CSSProperties => ({
   boxShadow: `0 0 28px -2px ${color}, inset 0 0 0 1px color-mix(in srgb, ${color} 70%, transparent)`,
 });
 
-/** Floating HUD: mode, timer and score in one glass bar with the round progress. */
-export const GameHeader = ({
+/**
+ * Floating HUD: mode, timer and score in one glass bar with the round progress.
+ * Memoized: the page re-renders on every keystroke, the HUD only when its props change.
+ */
+export const GameHeader = memo(function GameHeader({
   modeLabel, segmentLabel, score, total, timeLeft, timeLow, progress, feedback, onQuit,
-}: GameHeaderProps) => {
+}: GameHeaderProps) {
   const [scoreRef, animate] = useAnimate<HTMLDivElement>();
   const reduceMotion = useReducedMotion();
 
@@ -112,4 +115,4 @@ export const GameHeader = ({
       </GlassPanel>
     </header>
   );
-};
+});
