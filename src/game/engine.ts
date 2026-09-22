@@ -1,4 +1,5 @@
 import { validateInput } from '@/utils/bookValidation';
+import { speak, stop } from '@/lib/speech';
 
 export const GAME_MODES = ['classic', 'chapter-verse', 'book', 'warmup'] as const;
 export type GameMode = (typeof GAME_MODES)[number];
@@ -24,11 +25,35 @@ export const MODE_LABEL: Record<GameMode, string> = {
   warmup: 'Warm Up',
 };
 
-export const parseMode =(value?: string): GameMode =>
+export const parseMode = (value?: string): GameMode =>
   (GAME_MODES as readonly string[]).includes(value ?? '') ? (value as GameMode) : 'classic';
 
 /** What the space bar should do in the current mode. */
 export type SpaceAction = 'type' | 'submit';
+
+const ORDINAL_WORDS = ['', 'First', 'Second', 'Third'];
+
+/** Warm-up answers: "second" and "2" are the same answer, as they are when typing "2 Kings". */
+const normalizeOrdinal = (text: string) => {
+  const t = text.trim().toLowerCase();
+  const i = ORDINAL_WORDS.findIndex((w) => w.toLowerCase() === t);
+  return i > 0 ? String(i) : t;
+};
+
+// One parsed copy of the book data shared by every round, so hopping between
+// modes never waits on a fetch or races an unmount.
+let bookDocPromise: Promise<Document | null> | null = null;
+const loadBookDoc = (filePath: string) => {
+  bookDocPromise ??= fetch(filePath)
+    .then((r) => r.text())
+    .then((xml) => new DOMParser().parseFromString(xml, 'text/xml'))
+    .catch((error) => {
+      console.error('Error loading XML:', error);
+      bookDocPromise = null; // let the next round retry
+      return null;
+    });
+  return bookDocPromise;
+};
 
 export class BibleGame {
   private doc: Document | null = null;
@@ -36,53 +61,32 @@ export class BibleGame {
   private numPrompts = 0;
   private incorrectInputs: MissedPrompt[] = [];
   private bookUsageCounts = new Map<string, number>();
-  private currentSpeech: SpeechSynthesisUtterance | null = null;
-  private speechSynth: SpeechSynthesis;
   private lastBook: string | null = null;
   private currentPrompt = '';
   private mode: GameMode;
 
   constructor(private callbacks: GameCallbacks, mode: GameMode) {
-    this.speechSynth = window.speechSynthesis;
     this.mode = mode;
   }
 
   async loadXmlDocument(filePath: string) {
-    try {
-      const response = await fetch(filePath);
-      const xmlText = await response.text();
-      this.doc = new DOMParser().parseFromString(xmlText, 'text/xml');
-    } catch (error) {
-      console.error('Error loading XML:', error);
-    }
+    this.doc = await loadBookDoc(filePath);
   }
 
   speakPrompt(text: string) {
-    if (this.currentSpeech) {
-      this.speechSynth.cancel();
-    }
-
     const speakText = text.replace(':', ' verse ');
     const formattedText = speakText.replace(/^(\d+)\s+/, (match, number) => {
       const n = parseInt(number, 10);
       if (n >= 1 && n <= 3) {
-        const numberWords = ['', 'first', 'second', 'third'];
-        return `${numberWords[n]} `;
+        return `${ORDINAL_WORDS[n].toLowerCase()} `;
       }
       return match; // keep numbers like 12 as-is
     });
-
-    const utterance = new SpeechSynthesisUtterance(formattedText);
-    utterance.rate = 1.5;
-    this.currentSpeech = utterance;
-    this.speechSynth.speak(utterance);
+    speak(this, formattedText);
   }
 
   cancelSpeech() {
-    if (this.currentSpeech) {
-      this.speechSynth.cancel();
-      this.currentSpeech = null;
-    }
+    stop(this);
   }
 
   start() {
@@ -98,8 +102,7 @@ export class BibleGame {
     if (this.mode === 'warmup') {
       const isWord = Math.random() < 0.5;
       const n = Math.floor(Math.random() * 3) + 1;
-      const words = ['', 'First', 'Second', 'Third'];
-      this.setPrompt(isWord ? words[n] : String(n));
+      this.setPrompt(isWord ? ORDINAL_WORDS[n] : String(n));
       return;
     }
 
@@ -141,10 +144,15 @@ export class BibleGame {
     this.speakPrompt(prompt);
   }
 
+  /**
+   * Score an answer and move to the next prompt.
+   * Empty submissions (a stray Enter after Space already submitted) are ignored.
+   */
   handleInput(input: string) {
-    this.cancelSpeech();
-
     const user = input.trim();
+    if (!user) return;
+
+    this.cancelSpeech();
     let correct = false;
 
     if (this.mode === 'classic') {
@@ -157,7 +165,7 @@ export class BibleGame {
       const testPrompt = `${this.currentPrompt} 1:1`;
       correct = validateInput(testInput, testPrompt);
     } else if (this.mode === 'warmup') {
-      correct = user.toLowerCase() === this.currentPrompt.toLowerCase();
+      correct = normalizeOrdinal(user) === normalizeOrdinal(this.currentPrompt);
     }
 
     if (correct) {

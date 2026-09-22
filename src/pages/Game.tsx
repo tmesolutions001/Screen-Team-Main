@@ -46,6 +46,12 @@ const Game = () => {
     inputRef.current?.focus();
   }, []);
 
+  // Warm Up replaces the prompt when its segment changes; drop any half-typed
+  // answer so it is not scored against a prompt the player never heard.
+  useEffect(() => {
+    setInput('');
+  }, [activeMode]);
+
   // Show the final score for 3 seconds, then move to the results page.
   useEffect(() => {
     if (!isOver) return;
@@ -65,8 +71,10 @@ const Game = () => {
   // Stable identity so the memoized HUD is not re-rendered by every keystroke.
   const quit = useCallback(() => navigate('/simulator'), [navigate]);
 
+  // Read the DOM value rather than React state so a submit that lands in the
+  // same event burst as the last keystroke can never score a stale value.
   const submitInput = () => {
-    submit(input);
+    submit(inputRef.current?.value ?? input);
     setInput('');
   };
 
@@ -76,7 +84,7 @@ const Game = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === ' ' && spaceSubmits(input)) {
+    if (e.key === ' ' && spaceSubmits(e.currentTarget.value)) {
       e.preventDefault();
       submitInput();
     }

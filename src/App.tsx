@@ -14,13 +14,19 @@ import End from "./pages/End";
  */
 const AnimatedRoutes = () => {
   const location = useLocation();
+  // Menus are keyed by path so Back mid-transition reverses them. Rounds and
+  // results are keyed per navigation: re-entering /game while the previous round
+  // is still animating out must mount a fresh round, not revive the old one
+  // (old prompt, old clock, speech already cancelled).
+  const isRoundPage = location.pathname.startsWith('/game') || location.pathname === '/end';
+  const pageKey = isRoundPage ? location.key : location.pathname;
   return (
     <div className="relative">
       {/* No initial={false}: that flag is inherited by every motion element in
           the first page and would silently disable their enter animations. */}
       <AnimatePresence mode="popLayout">
         <motion.div
-          key={location.pathname}
+          key={pageKey}
           variants={pageVariants}
           initial="initial"
           animate="enter"
