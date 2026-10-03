@@ -1,5 +1,6 @@
 import { validateInput } from '@/utils/bookValidation';
 import { speak, stop } from '@/lib/speech';
+import { diagnose, type BookData, type Diagnosis } from './diagnose';
 
 export const GAME_MODES = ['classic', 'chapter-verse', 'book', 'warmup'] as const;
 export type GameMode = (typeof GAME_MODES)[number];
@@ -8,6 +9,8 @@ export interface MissedPrompt {
   id: number;
   prompt: string;
   userInput: string;
+  /** Why it was wrong, for the results table. */
+  diagnosis: Diagnosis;
 }
 
 export interface GameCallbacks {
@@ -71,6 +74,22 @@ export class BibleGame {
 
   async loadXmlDocument(filePath: string) {
     this.doc = await loadBookDoc(filePath);
+  }
+
+  /** Chapter/verse counts for diagnosing misses. */
+  private bookData(): BookData | undefined {
+    const doc = this.doc;
+    if (!doc) return undefined;
+    const find = (book: string) =>
+      Array.from(doc.getElementsByTagName('Book')).find((b) => b.getAttribute('ID') === book);
+    return {
+      chapterCount: (book) => find(book)?.getElementsByTagName('Chapter').length,
+      verseCount: (book, chapter) => {
+        const ch = Array.from(find(book)?.getElementsByTagName('Chapter') ?? [])
+          .find((c) => c.getAttribute('Number') === String(chapter));
+        return ch ? parseInt(ch.getAttribute('VerseCount') || '0') : undefined;
+      },
+    };
   }
 
   speakPrompt(text: string) {
@@ -158,8 +177,8 @@ export class BibleGame {
     if (this.mode === 'classic') {
       correct = validateInput(user, this.currentPrompt);
     } else if (this.mode === 'chapter-verse') {
-      const normalized = user.replace(/\s+/, ':');
-      correct = normalized === this.currentPrompt;
+      // Spaces only: typing the colon is slower, so it's taught as a miss.
+      correct = /^\d+\s+\d+$/.test(user) && user.replace(/\s+/, ':') === this.currentPrompt;
     } else if (this.mode === 'book') {
       const testInput = `${user} 1 1`;
       const testPrompt = `${this.currentPrompt} 1:1`;
@@ -174,7 +193,12 @@ export class BibleGame {
     } else {
       this.incorrectInputs = [
         ...this.incorrectInputs,
-        { id: this.numPrompts, prompt: this.currentPrompt, userInput: input },
+        {
+          id: this.numPrompts,
+          prompt: this.currentPrompt,
+          userInput: input,
+          diagnosis: diagnose(this.mode, this.currentPrompt, user, this.bookData()),
+        },
       ];
       this.callbacks.onMissed(this.incorrectInputs);
     }
