@@ -10,8 +10,6 @@ import { blurText, swapProps } from '@/lib/motion';
 import type { EndState } from './End';
 
 const LOW_TIME_SECONDS = 10;
-/** Warm Up segments are 15–20 s, so only their last few seconds read as low. */
-const WARMUP_LOW_TIME_SECONDS = 5;
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -103,7 +101,7 @@ const Game = () => {
         score={score}
         total={total}
         timeLeft={formatTime(timeLeft)}
-        timeLow={accepting && !isOver && timeLeft <= (isWarmup ? WARMUP_LOW_TIME_SECONDS : LOW_TIME_SECONDS)}
+        timeLow={accepting && !isOver && timeLeft <= LOW_TIME_SECONDS}
         progress={progress}
         feedback={feedback}
         onQuit={quit}

@@ -5,7 +5,7 @@ Tools for ProPresenter operators.
 - **Simulator** — rapid-fire scripture reference trainer. A prompt is spoken aloud
   (e.g. "John 3 verse 16") and the operator types it as fast as possible; a round lasts 60 seconds.
   Modes: **Classic** (book chapter verse), **Chapter–Verse**, **Book**, and **Warm Up**
-  (Chapter–Verse 15 s, Book 15 s, then Classic 20 s; each segment's name is shown and spoken,
+  (Chapter–Verse, Book, then Classic, 30 s each; each segment's name is shown and spoken,
   then a 3-2-1 countdown, with a switch sound between segments; the clock only runs while playing).
   The results table explains every miss: an **Issue** pill (e.g. *Opens earlier book*) opens a
   popup saying what the typing would actually have opened, what was missing, and the fastest

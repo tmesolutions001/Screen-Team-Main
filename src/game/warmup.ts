@@ -6,9 +6,9 @@ import type { GameMode } from './engine';
  * announced by a switch sound. The clock only runs while playing.
  */
 export const WARMUP_SEGMENTS: ReadonlyArray<{ mode: GameMode; seconds: number }> = [
-  { mode: 'chapter-verse', seconds: 15 },
-  { mode: 'book', seconds: 15 },
-  { mode: 'classic', seconds: 20 },
+  { mode: 'chapter-verse', seconds: 30 },
+  { mode: 'book', seconds: 30 },
+  { mode: 'classic', seconds: 30 },
 ];
 
 /** Spoken segment names (the narrator reads "Chapter–Verse" badly). */
