@@ -214,16 +214,6 @@ function diagnoseChapterVerse(raw: string, prompt: string, data?: BookData): Dia
   return { issues, fastest };
 }
 
-function diagnoseWarmup(raw: string, prompt: string): Diagnosis {
-  const toDigit = (s: string) => ORDINAL_DIGIT[s.toLowerCase()] ?? s;
-  const want = toDigit(prompt);
-  const got = toDigit(raw);
-  const issues: Issue[] = /^\d+$/.test(got)
-    ? [{ label: 'Wrong number', detail: `Typed ${got}; the prompt was ${prompt}, so \`${want}\`.` }]
-    : [{ label: 'Not a number', detail: `\`${raw}\` isn't a number. ${prompt} is \`${want}\`.` }];
-  return { issues, fastest: want };
-}
-
 export function diagnose(mode: GameMode, prompt: string, input: string, data?: BookData): Diagnosis {
   const raw = input.trim().toLowerCase();
   let result: Diagnosis;
@@ -233,9 +223,6 @@ export function diagnose(mode: GameMode, prompt: string, input: string, data?: B
       break;
     case 'chapter-verse':
       result = diagnoseChapterVerse(raw, prompt, data);
-      break;
-    case 'warmup':
-      result = diagnoseWarmup(raw, prompt);
       break;
     default:
       result = diagnoseClassic(raw, prompt, data);

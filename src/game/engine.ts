@@ -34,14 +34,8 @@ export const parseMode = (value?: string): GameMode =>
 /** What the space bar should do in the current mode. */
 export type SpaceAction = 'type' | 'submit';
 
+/** Spoken in place of a book number: "2 Kings" is read "second Kings". */
 const ORDINAL_WORDS = ['', 'First', 'Second', 'Third'];
-
-/** Warm-up answers: "second" and "2" are the same answer, as they are when typing "2 Kings". */
-const normalizeOrdinal = (text: string) => {
-  const t = text.trim().toLowerCase();
-  const i = ORDINAL_WORDS.findIndex((w) => w.toLowerCase() === t);
-  return i > 0 ? String(i) : t;
-};
 
 // One parsed copy of the book data shared by every round, so hopping between
 // modes never waits on a fetch or races an unmount.
@@ -93,39 +87,46 @@ export class BibleGame {
   }
 
   speakPrompt(text: string) {
-    const speakText = text.replace(':', ' verse ');
-    const formattedText = speakText.replace(/^(\d+)\s+/, (match, number) => {
-      const n = parseInt(number, 10);
-      if (n >= 1 && n <= 3) {
-        return `${ORDINAL_WORDS[n].toLowerCase()} `;
-      }
-      return match; // keep numbers like 12 as-is
-    });
-    speak(this, formattedText);
+    // Only a book number is read as an ordinal ("2 Kings" -> "second Kings"). Matching on
+    // the raw prompt keeps Chapter–Verse's "2:21" as "2 verse 21", not "second verse 21".
+    const spoken = text.replace(/^([1-3]) (?=[A-Za-z])/, (_, n: string) => `${ORDINAL_WORDS[Number(n)].toLowerCase()} `);
+    speak(this, spoken.replace(':', ' verse '));
   }
 
   cancelSpeech() {
     stop(this);
   }
 
+  /** Resets the round. Warm Up has no prompt until its first segment begins. */
   start() {
     this.points = 0;
     this.numPrompts = 0;
     this.incorrectInputs = [];
     this.bookUsageCounts.clear();
     this.lastBook = null;
+    this.currentPrompt = '';
+    if (this.mode !== 'warmup') this.generateNewPrompt();
+  }
+
+  /** Warm Up: start drilling `mode` with a fresh prompt. */
+  beginSegment(mode: GameMode) {
+    this.mode = mode;
     this.generateNewPrompt();
   }
 
-  generateNewPrompt() {
-    if (this.mode === 'warmup') {
-      const isWord = Math.random() < 0.5;
-      const n = Math.floor(Math.random() * 3) + 1;
-      this.setPrompt(isWord ? ORDINAL_WORDS[n] : String(n));
-      return;
-    }
+  /** Warm Up: between segments there is no prompt, so answers are ignored. */
+  pause() {
+    this.currentPrompt = '';
+    this.cancelSpeech();
+  }
 
-    if (!this.doc) return;
+  /** Speak a segment title. Owned like prompts, so leaving the page silences it. */
+  announce(text: string) {
+    speak(this, text, 1.1);
+  }
+
+  generateNewPrompt() {
+    if (this.mode === 'warmup' || !this.doc) return;
 
     const books = Array.from(this.doc.getElementsByTagName('Book'));
     let availableBooks = books.filter(book => {
@@ -169,7 +170,7 @@ export class BibleGame {
    */
   handleInput(input: string) {
     const user = input.trim();
-    if (!user) return;
+    if (!user || !this.currentPrompt) return;
 
     this.cancelSpeech();
     let correct = false;
@@ -183,8 +184,6 @@ export class BibleGame {
       const testInput = `${user} 1 1`;
       const testPrompt = `${this.currentPrompt} 1:1`;
       correct = validateInput(testInput, testPrompt);
-    } else if (this.mode === 'warmup') {
-      correct = normalizeOrdinal(user) === normalizeOrdinal(this.currentPrompt);
     }
 
     if (correct) {
@@ -209,15 +208,15 @@ export class BibleGame {
   }
 
   /**
-   * Book mode submits on space (numbered books like "1 John" allow one space first);
-   * warm-up always submits on space. Other modes type the space normally.
+   * Book mode submits on space (numbered books like "1 John" allow one space first).
+   * Other modes type the space normally.
    */
   spaceAction(input: string): SpaceAction {
     if (this.mode === 'book') {
       const isNumberedBook = /^([1-3])\s/.test(this.currentPrompt);
       return isNumberedBook && !input.includes(' ') ? 'type' : 'submit';
     }
-    return this.mode === 'warmup' ? 'submit' : 'type';
+    return 'type';
   }
 
   getTotalPrompts(): number {
@@ -230,12 +229,5 @@ export class BibleGame {
 
   getCurrentPrompt(): string {
     return this.currentPrompt;
-  }
-
-  setMode(newMode: GameMode) {
-    if (this.mode !== newMode) {
-      this.mode = newMode;
-      this.generateNewPrompt();
-    }
   }
 }

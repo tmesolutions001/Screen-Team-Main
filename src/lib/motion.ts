@@ -73,3 +73,20 @@ export const rowReveal = {
     filter: { duration: 0.32, ease: 'easeOut' },
   },
 } as const;
+
+/**
+ * Text that resolves out of a slight blur and rise: typed answer letters, Warm
+ * Up titles and countdown digits. Opacity/blur are short tweens (a spring could
+ * overshoot into an invalid negative blur); only the rise is sprung. Settled
+ * text drops its filter so it stops being its own filter layer.
+ */
+export const blurText = {
+  initial: { opacity: 0, filter: 'blur(8px)', y: 4 },
+  animate: { opacity: 1, filter: 'blur(0px)', y: 0, transitionEnd: { filter: 'none' } },
+  exit: { opacity: 0, filter: 'blur(8px)', y: -4 },
+  transition: {
+    ...springs.snappy,
+    opacity: { duration: 0.16, ease: 'easeOut' },
+    filter: { duration: 0.22, ease: 'easeOut' },
+  },
+} as const;

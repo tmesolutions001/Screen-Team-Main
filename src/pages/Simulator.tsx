@@ -9,9 +9,9 @@ import { staggerContainer, staggerItem } from '@/lib/motion';
 
 const MODES: Array<{ mode: GameMode; path: string; icon: ReactNode; description: string; tone?: 'warm' }> = [
   { mode: 'classic', path: '/game', icon: <ScrollText className="h-6 w-6" />, description: 'Book, chapter and verse.' },
-  { mode: 'chapter-verse', path: '/game/chapter-verse', icon: <Hash className="h-6 w-6" />, description: 'Chapter and verse numbers only.' },
+  { mode: 'chapter-verse', path: '/game/chapter-verse', icon: <Hash className="h-6 w-6" />, description: 'Chapter and verse numbers only. Warm up on the numberpad.' },
   { mode: 'book', path: '/game/book', icon: <BookOpen className="h-6 w-6" />, description: 'Book names only.' },
-  { mode: 'warmup', path: '/game/warmup', icon: <Flame className="h-6 w-6" />, description: 'Rotates through every mode, 15 seconds each.', tone: 'warm' },
+  { mode: 'warmup', path: '/game/warmup', icon: <Flame className="h-6 w-6" />, description: 'Chapter–Verse, Book, then Classic, with a countdown before each.', tone: 'warm' },
 ];
 
 /** Simulator menu: pick a drill mode. */

@@ -5,11 +5,13 @@ import { GameHeader } from '@/components/GameHeader';
 import { AnswerField } from '@/components/AnswerField';
 import { CountUp } from '@/components/CountUp';
 import { MODE_LABEL, parseMode, type GameMode } from '@/game/engine';
-import { ROUND_SECONDS, useGame } from '@/game/useGame';
-import { swapProps } from '@/lib/motion';
+import { useGame } from '@/game/useGame';
+import { blurText, swapProps } from '@/lib/motion';
 import type { EndState } from './End';
 
 const LOW_TIME_SECONDS = 10;
+/** Warm Up segments are 15–20 s, so only their last few seconds read as low. */
+const WARMUP_LOW_TIME_SECONDS = 5;
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -26,11 +28,9 @@ const HINT: Record<GameMode, React.ReactNode> = {
   classic: <><Kbd>Enter</Kbd> to submit</>,
   'chapter-verse': <><Kbd>Enter</Kbd> to submit</>,
   book: <><Kbd>Space</Kbd> or <Kbd>Enter</Kbd> to submit</>,
-  warmup: <><Kbd>Space</Kbd> or <Kbd>Enter</Kbd> to submit</>,
+  // Never drilled directly: Warm Up always reports the segment's own mode.
+  warmup: <><Kbd>Enter</Kbd> to submit</>,
 };
-
-/** Warm Up's opening segment drills ordinals ("First" / "2"), so it gets its own name in the HUD. */
-const WARMUP_SEGMENT_LABEL: Record<GameMode, string> = { ...MODE_LABEL, warmup: 'Ordinals' };
 
 const Game = () => {
   const navigate = useNavigate();
@@ -38,7 +38,10 @@ const Game = () => {
   const gameMode = parseMode(mode);
   // False once this page starts animating out; stops the clock and speech straight away.
   const isPresent = useIsPresent();
-  const { prompt, score, total, missed, timeLeft, isOver, feedback, activeMode, submit, spaceSubmits } = useGame(gameMode, isPresent);
+  const {
+    prompt, score, total, missed, timeLeft, progress, isOver, feedback, activeMode, phase, accepting, submit, spaceSubmits,
+  } = useGame(gameMode, isPresent);
+  const isWarmup = gameMode === 'warmup';
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,11 +49,11 @@ const Game = () => {
     inputRef.current?.focus();
   }, []);
 
-  // Warm Up replaces the prompt when its segment changes; drop any half-typed
-  // answer so it is not scored against a prompt the player never heard.
+  // Warm Up drops any half-typed answer when a segment ends, so it is never
+  // scored against a prompt the player never heard.
   useEffect(() => {
     setInput('');
-  }, [activeMode]);
+  }, [activeMode, accepting]);
 
   // Show the final score for 3 seconds, then move to the results page.
   useEffect(() => {
@@ -90,19 +93,18 @@ const Game = () => {
     }
   };
 
-  const progressValue = ((ROUND_SECONDS - timeLeft) / ROUND_SECONDS) * 100;
   const accuracy = total ? Math.round((score / total) * 100) : 0;
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-6">
       <GameHeader
         modeLabel={MODE_LABEL[gameMode]}
-        segmentLabel={gameMode === 'warmup' ? WARMUP_SEGMENT_LABEL[activeMode] : undefined}
+        segmentLabel={isWarmup ? MODE_LABEL[activeMode] : undefined}
         score={score}
         total={total}
         timeLeft={formatTime(timeLeft)}
-        timeLow={timeLeft <= LOW_TIME_SECONDS && !isOver}
-        progress={progressValue}
+        timeLow={accepting && !isOver && timeLeft <= (isWarmup ? WARMUP_LOW_TIME_SECONDS : LOW_TIME_SECONDS)}
+        progress={progress}
         feedback={feedback}
         onQuit={quit}
       />
@@ -121,11 +123,39 @@ const Game = () => {
           <motion.main key="stage" {...swapProps} initial={false} className="w-full max-w-4xl space-y-5">
             {/* The prompt is spoken, not shown; kept in the DOM for screen readers */}
             <h2 className="sr-only">{prompt}</h2>
-            <p className="text-center text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Listen · type the reference
-            </p>
+            {/* Fixed-height slot above the field: Warm Up's segment title blurs in and out here,
+                then the usual instruction returns once the segment is being played. */}
+            <div className="relative grid h-10 place-items-center" aria-live="polite">
+              <AnimatePresence>
+                {phase?.kind === 'title' ? (
+                  <motion.p
+                    key={`title-${phase.segment}`}
+                    {...blurText}
+                    className="col-start-1 row-start-1 text-3xl font-bold tracking-tight text-gradient-warm"
+                  >
+                    {MODE_LABEL[activeMode]}
+                  </motion.p>
+                ) : accepting ? (
+                  <motion.p
+                    key="instruction"
+                    {...blurText}
+                    className="col-start-1 row-start-1 text-xs uppercase tracking-[0.2em] text-muted-foreground"
+                  >
+                    Listen · type the reference
+                  </motion.p>
+                ) : null}
+              </AnimatePresence>
+            </div>
             <form onSubmit={handleSubmit} className="w-full">
-              <AnswerField ref={inputRef} value={input} onValueChange={setInput} onKeyDown={handleKeyDown} feedback={feedback} />
+              <AnswerField
+                ref={inputRef}
+                value={input}
+                // Typing is held until the countdown ends, so nothing is half-typed when the segment starts.
+                onValueChange={(value) => accepting && setInput(value)}
+                onKeyDown={handleKeyDown}
+                feedback={feedback}
+                countdown={phase?.kind === 'count' ? phase.count : null}
+              />
             </form>
             <p className="text-center text-sm text-muted-foreground">{HINT[activeMode]}</p>
           </motion.main>

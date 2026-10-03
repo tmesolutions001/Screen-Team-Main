@@ -5,7 +5,8 @@ Tools for ProPresenter operators.
 - **Simulator** — rapid-fire scripture reference trainer. A prompt is spoken aloud
   (e.g. "John 3 verse 16") and the operator types it as fast as possible; a round lasts 60 seconds.
   Modes: **Classic** (book chapter verse), **Chapter–Verse**, **Book**, and **Warm Up**
-  (ordinals, then each of the other modes, in 15-second segments).
+  (Chapter–Verse 15 s, Book 15 s, then Classic 20 s; each segment's name is shown and spoken,
+  then a 3-2-1 countdown, with a switch sound between segments; the clock only runs while playing).
   The results table explains every miss: an **Issue** pill (e.g. *Opens earlier book*) opens a
   popup saying what the typing would actually have opened, what was missing, and the fastest
   correct answer. Colons count as a miss: typing a space is faster.
@@ -24,6 +25,6 @@ Stack: React 18, Vite, TypeScript, Tailwind CSS, Motion. Book/chapter/verse data
 ## Layout
 
 - `src/pages` — `Home` (app home), `Simulator` (mode menu), `Game`, `End` (results)
-- `src/game` — `engine.ts` (prompts and scoring), `diagnose.ts` (why a miss was wrong), `useGame.ts` (round state, clock, feedback)
+- `src/game` — `engine.ts` (prompts and scoring), `diagnose.ts` (why a miss was wrong), `warmup.ts` (Warm Up schedule), `useGame.ts` (round state, clock, feedback)
 - `src/components/glass` — frosted-glass component set; design tokens are in `src/index.css`
 - `src/lib` — `motion.ts` (shared springs/variants), `sfx.ts` (synthesized sounds), `settings.ts`

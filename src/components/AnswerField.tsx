@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useLayoutEffect, useRef, type CSSProperties, type KeyboardEventHandler } from 'react';
-import { motion, useAnimate, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useAnimate, useReducedMotion } from 'motion/react';
 import { GlassInput } from '@/components/glass';
-import { springs } from '@/lib/motion';
+import { blurText, springs } from '@/lib/motion';
 import type { Feedback } from '@/game/useGame';
 
 interface AnswerFieldProps {
@@ -10,19 +10,9 @@ interface AnswerFieldProps {
   onKeyDown: KeyboardEventHandler<HTMLInputElement>;
   /** Latest answer result; pulses the field green or red (with a small shake on a miss). */
   feedback: Feedback | null;
+  /** Warm Up countdown digit, shown centred in the field in place of the caret. */
+  countdown?: number | null;
 }
-
-// New characters resolve out of a slight blur and rise. Opacity/blur are short
-// tweens (a spring could overshoot into an invalid negative blur); only the
-// rise is sprung. Removal is instant, so rapid typing and submits never wait.
-const charInitial = { opacity: 0, filter: 'blur(8px)', y: 4 };
-// transitionEnd drops the filter once settled, so a finished letter stops being its own filter layer.
-const charAnimate = { opacity: 1, filter: 'blur(0px)', y: 0, transitionEnd: { filter: 'none' } };
-const charTransition = {
-  ...springs.snappy,
-  opacity: { duration: 0.16, ease: 'easeOut' },
-  filter: { duration: 0.22, ease: 'easeOut' },
-} as const;
 
 const ringStyle = (color: string): CSSProperties => ({
   boxShadow: `0 0 0 2px ${color}, 0 0 44px -6px ${color}`,
@@ -35,7 +25,7 @@ const ringStyle = (color: string): CSSProperties => ({
  * caret that springs to the end of the text.
  */
 export const AnswerField = forwardRef<HTMLInputElement, AnswerFieldProps>(
-  ({ value, onValueChange, onKeyDown, feedback }, ref) => {
+  ({ value, onValueChange, onKeyDown, feedback, countdown = null }, ref) => {
     const [scope, animate] = useAnimate<HTMLDivElement>();
     const reduceMotion = useReducedMotion();
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -89,17 +79,33 @@ export const AnswerField = forwardRef<HTMLInputElement, AnswerFieldProps>(
                   key={`${i}-${char}`}
                   className="answer-char"
                   style={{ '--i': i } as CSSProperties}
-                  initial={charInitial}
-                  animate={charAnimate}
-                  transition={charTransition}
+                  // New letters resolve from a blur; removal is instant, so rapid typing and submits never wait.
+                  initial={blurText.initial}
+                  animate={blurText.animate}
+                  transition={blurText.transition}
                 >
                   {char}
                 </motion.span>
               ))}
-              <motion.span layout transition={springs.snappy} className="answer-caret">
+              <motion.span
+                layout
+                transition={springs.snappy}
+                animate={{ opacity: countdown === null ? 1 : 0 }}
+                className="answer-caret"
+              >
                 {/* Re-keyed per keystroke so the blink restarts solid while typing */}
                 <span key={value.length} className="answer-caret__blink" />
               </motion.span>
+            </div>
+            {/* Digits share one grid cell, so the outgoing one blurs out where the next blurs in. */}
+            <div className="absolute inset-0 grid place-items-center">
+              <AnimatePresence>
+                {countdown !== null && (
+                  <motion.span key={countdown} {...blurText} className="col-start-1 row-start-1 text-gradient">
+                    {countdown}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </GlassInput>
