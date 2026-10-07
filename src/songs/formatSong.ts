@@ -16,7 +16,8 @@
  * Pre-processing: alignment dots become spaces, repeat markers (x2, (x4), ×4)
  * are removed from labels and lyrics, and chord-only lines are removed.
  * Rules: the first line is the title (trailing [..] / (..) metadata removed);
- * everything before the first recognised group label is dropped; group labels
+ * obvious metadata lines (bracketed, bpm, 4/4, key, credits) are dropped;
+ * lyrics before any group label start [Verse 1]; group labels
  * (English, Spanish, abbreviations, typos, multipliers) map to a fixed set of
  * master groups; body lines wrap at word boundaries to 25 characters, balanced
  * so no line is left with a stray word, and are
@@ -292,6 +293,28 @@ export function preprocess(raw: string): Preprocessed {
   return { lines, chordLines, multipliers };
 }
 
+/**
+ * Obvious metadata, removed wherever it appears (unless the line is a group
+ * label): a line fully in [brackets] or (parentheses), or one carrying tempo,
+ * time-signature, key or credit details. Everything else is kept as lyrics.
+ */
+const METADATA_PATTERNS: RegExp[] = [
+  /^\[.*\]$/, // [Default Arrangement], [Lyrics], [Spoken]
+  /^\(.*\)$/, // (Key change)
+  /\bbpm\b/i, // 70 bpm
+  /(?<![\d/])(?:[1-9]|1[0-2])\/(?:2|4|8|16)(?![\d/])/, // 4/4, 6/8, 12/8 (not 24/7)
+  /\btempo\b/i,
+  /\btime signature\b/i,
+  /\bkey\s*:/i, // "Key: G"
+  /\bccli\b/i,
+  /©|\bcopyright\b/i,
+  /\bwritten by\b|\bwords and music\b/i,
+];
+
+export function isMetadataLine(line: string): boolean {
+  return line !== '' && METADATA_PATTERNS.some((re) => re.test(line)) && matchGroup(line) === null;
+}
+
 /** Title: first line with trailing bracketed metadata ("[Lyrics, 139 bpm]") removed. */
 export function cleanTitle(line: string): string {
   let t = line.trim();
@@ -359,15 +382,18 @@ export function wrapLine(line: string, max = MAX_LINE): { lines: string[]; longW
 
 /** Cost weights for chunking: fewest slides first, never a one-line slide if avoidable. */
 const SPLIT_PHRASE_COST = 3;
+/** Two stanzas on one slide: allowed, but a separate slide per stanza is preferred. */
+const STANZA_CROSS_COST = 2;
 const ONE_LINE_COST = 10;
 
 /**
  * Split a section into chunks of 2 or 3 lines. `phrases` are the wrapped pieces
  * of each source line; a chunk boundary inside a phrase (one lyric line spread
  * over two slides) is avoided unless it is the only way to keep every chunk at
- * 2–3 lines. Among equal options, uses the fewest chunks.
+ * 2–3 lines. `stanzaStarts` (line indexes) are preferred chunk boundaries: a
+ * slide mixing two stanzas costs a little. Among equal options, uses the fewest chunks.
  */
-export function chunkPhrases(phrases: string[][]): string[][] {
+export function chunkPhrases(phrases: string[][], stanzaStarts: ReadonlySet<number> = new Set()): string[][] {
   const lines = phrases.flat();
   const n = lines.length;
   if (n <= 3) return n ? [lines] : [];
@@ -385,7 +411,14 @@ export function chunkPhrases(phrases: string[][]): string[][] {
     for (const size of [3, 2, 1]) {
       const end = i + size;
       if (end > n) continue;
-      const cost = 1 + best[end] + (phraseEnds.has(end) ? 0 : SPLIT_PHRASE_COST) + (size === 1 ? ONE_LINE_COST : 0);
+      let crossesStanza = false;
+      for (let k = i + 1; k < end; k++) if (stanzaStarts.has(k)) crossesStanza = true;
+      const cost =
+        1 +
+        best[end] +
+        (phraseEnds.has(end) ? 0 : SPLIT_PHRASE_COST) +
+        (crossesStanza ? STANZA_CROSS_COST : 0) +
+        (size === 1 ? ONE_LINE_COST : 0);
       if (cost < best[i]) {
         best[i] = cost;
         next[i] = size;
@@ -450,40 +483,54 @@ export function formatSong(raw: string, options: FormatOptions = {}): FormatResu
 
   // Sections: each recognised group label starts one; everything before the
   // first one (credits, keys, bpm, "Lyrics" headers) is metadata and dropped.
+  // Read top to bottom. A group label starts a section; lyrics before any label
+  // start [Verse 1]; blank lines mark stanza breaks inside the current section;
+  // obvious metadata (see isMetadataLine) is dropped wherever it appears.
   const sections: Section[] = [];
-  let purged = 0;
+  let metadata = 0;
+  let fellBack = false;
+  let stanzaBreak = false;
   for (const raw of lines.slice(titleIndex + 1)) {
-    const line = raw.trim();
+    const line = raw.trim().replace(/\s+/g, ' ');
     const match = matchGroup(line);
+    const current = sections[sections.length - 1];
     if (match && 'group' in match) {
       // The same group labelled again straight away ("Chorus" ... "Chorus x2")
       // continues it: one tag per group, not per stanza.
-      if (sections[sections.length - 1]?.group !== match.group) sections.push({ group: match.group, body: [] });
+      if (current?.group !== match.group) sections.push({ group: match.group, body: [] });
+      stanzaBreak = true;
       continue;
     }
-    const current = sections[sections.length - 1];
-    if (!current) {
-      if (line) purged++;
+    if (!line) {
+      stanzaBreak = true;
       continue;
     }
     if (match && 'unsupported' in match) {
-      warnings.push(`"${line}" looks like ${match.unsupported}, which isn't one of the groups, so its lines stay under [${current.group}].`);
+      warnings.push(
+        `"${line}" looks like ${match.unsupported}, which isn't one of the groups, so its lines stay under [${current?.group ?? 'Verse 1'}].`
+      );
+      stanzaBreak = true;
       continue;
     }
-    if (!line) continue;
-    // Bracketed notes that aren't groups ("[Spoken]", "(Key change)") are directions, not lyrics.
-    if (/^[[(].*[\])]$/.test(line)) {
-      warnings.push(`Removed the note "${line}" from [${current.group}].`);
+    if (isMetadataLine(line)) {
+      metadata++;
       continue;
     }
-    current.body.push(line.replace(/\s+/g, ' '));
+    let section = current;
+    if (!section) {
+      // Lyrics before any group label: they start the song as [Verse 1].
+      section = { group: 'Verse 1', body: [] };
+      sections.push(section);
+      fellBack = true;
+    }
+    if (stanzaBreak && section.body.length) section.body.push(STANZA_BREAK);
+    stanzaBreak = false;
+    section.body.push(line);
   }
 
-  if (!sections.length) {
-    warnings.push('No group labels (Verse, Chorus, Coro, …) were found, so there is nothing to format below the title.');
-  } else if (purged) {
-    warnings.push(`Removed ${purged} line${purged === 1 ? '' : 's'} of metadata between the title and the first group.`);
-  }
+  if (fellBack) warnings.push('Lyrics came before any group label, so they start under [Verse 1].');
+  if (metadata) warnings.push(`Removed ${metadata} line${metadata === 1 ? '' : 's'} of metadata (brackets, bpm, 4/4, key, credits).`);
+  if (!sections.length) warnings.push('No lyrics were found below the title.');
 
   const kept = pruneEmptyGroups(sections);
   for (const group of kept.removed) warnings.push(`Removed [${group}]: it had no lyrics under it.`);
@@ -492,12 +539,20 @@ export function formatSong(raw: string, options: FormatOptions = {}): FormatResu
   const blocks: string[] = [OPENING_BLANK];
   for (const { group, body } of kept.sections) {
     const phrases: string[][] = [];
+    // Wrapped-line indexes where a new stanza begins, so chunks prefer not to straddle stanzas.
+    const stanzaStarts = new Set<number>();
+    let lineCount = 0;
     for (const line of body) {
+      if (line === STANZA_BREAK) {
+        stanzaStarts.add(lineCount);
+        continue;
+      }
       const { lines: w, longWord } = wrapLine(line);
       if (longWord) warnings.push(`"${longWord}" is longer than ${MAX_LINE} characters; it has a line of its own rather than being split.`);
       phrases.push(w);
+      lineCount += w.length;
     }
-    const chunks = chunkPhrases(phrases);
+    const chunks = chunkPhrases(phrases, stanzaStarts);
     if (chunks.some((c) => c.length === 1)) warnings.push(`[${group}] has a slide with only one line.`);
     // Tag once; chunks after the first are separated by a blank line only.
     blocks.push([`[${group}]`, chunks.map((c) => c.join('\n')).join('\n\n')].filter(Boolean).join('\n'));
@@ -509,8 +564,12 @@ export function formatSong(raw: string, options: FormatOptions = {}): FormatResu
   return { text, title, missingTitle, groups: kept.sections.map((s) => s.group), warnings };
 }
 
+/** Marks a stanza break (a blank line in the source) inside a section's body. */
+const STANZA_BREAK = '';
+
 interface Section {
   group: MasterGroup;
+  /** Lyric lines, with STANZA_BREAK between stanzas. */
   body: string[];
 }
 
@@ -524,12 +583,12 @@ export function pruneEmptyGroups(sections: Section[]): { sections: Section[]; re
   const removed: MasterGroup[] = [];
   const out: Section[] = [];
   for (const section of sections) {
-    if (!section.body.length) {
+    if (!section.body.some((l) => l !== STANZA_BREAK)) {
       removed.push(section.group);
       continue;
     }
     const prev = out[out.length - 1];
-    if (prev?.group === section.group) prev.body.push(...section.body);
+    if (prev?.group === section.group) prev.body.push(STANZA_BREAK, ...section.body);
     else out.push({ group: section.group, body: [...section.body] });
   }
   return { sections: out, removed };
