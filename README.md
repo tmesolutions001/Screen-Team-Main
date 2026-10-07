@@ -11,14 +11,16 @@ Tools for ProPresenter operators.
   popup saying what the typing would actually have opened, what was missing, and the fastest
   correct answer. Colons count as a miss: typing a space is faster.
 - **Song Formatter** — paste raw lyrics, copy slide-ready text. First, alignment dots
-  (`....Lorem.ipsum.dolor`) become spaces and chord-only lines (`G C/G`, `Em C G`) are removed. The first line becomes
+  (`....Lorem.ipsum.dolor`) become spaces, repeat markers (`x2`, `(x4)`, `×4`) are removed from labels and lyrics, and
+  chord-only lines (`G C/G`, `Em C G`) are removed. The first line becomes
   `Title: …` (trailing `[…]` metadata removed) and everything before the first group label is
   dropped. Labels in English or Spanish, abbreviated, misspelled or with multipliers (`Coro x2`,
   `V1`, `Puente ×4`, `Chrous`) map to fixed groups (`[Verse 1]`, `[Chorus]`, `[PreChorus]`, …).
-  Lines wrap at word boundaries to 25 characters (words are never split), and each group is split into 2–3-line slides,
+  Lines wrap at word boundaries to 25 characters, balanced so no line is left with a stray word
+  (a 28-character line becomes two of about 14; words are never split), and each group is split into 2–3-line slides,
   keeping a wrapped lyric line on one slide where possible. Each group's tag is written once, with
   slides separated by a blank line. The song opens with `[Blank]` holding a single `.` so ProPresenter
-  keeps the group; copying shows a reminder to remove that period.
+  keeps the group; copying shows a 5-second reminder to remove that period.
 
 ## Development
 

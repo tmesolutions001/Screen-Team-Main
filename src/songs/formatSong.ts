@@ -13,11 +13,13 @@
  *   line
  *   line
  *
- * Pre-processing: alignment dots become spaces, and chord-only lines are removed.
+ * Pre-processing: alignment dots become spaces, repeat markers (x2, (x4), ×4)
+ * are removed from labels and lyrics, and chord-only lines are removed.
  * Rules: the first line is the title (trailing [..] / (..) metadata removed);
  * everything before the first recognised group label is dropped; group labels
  * (English, Spanish, abbreviations, typos, multipliers) map to a fixed set of
- * master groups; body lines wrap at word boundaries to 25 characters and are
+ * master groups; body lines wrap at word boundaries to 25 characters, balanced
+ * so no line is left with a stray word, and are
  * split into chunks of 2–3 lines (keeping each lyric line's wrapped pieces
  * together where possible). Each group's tag is written once, with chunks
  * separated by a blank line; the song opens with a [Blank] group holding ".".
@@ -214,24 +216,51 @@ export function isChordLine(line: string): boolean {
   return tokens.some((t) => CHORD.test(t)) && tokens.every((t) => CHORD.test(t) || CHORD_SPACER.test(t));
 }
 
+/** Repeat markers in their own brackets: (x4), [x2], (2x), [×3]. */
+const BRACKETED_MULTIPLIER = /[[(]\s*(?:[x×]\s*\d+|\d+\s*[x×])\s*[\])]/gi;
+/** Bare repeat markers: x2, ×4, 2x (never part of a word: "max2" and "x2y" are left alone). */
+const BARE_MULTIPLIER = /(?<![\p{L}\p{N}])(?:[x×]\s?\d+|\d+\s?[x×])(?![\p{L}\p{N}])/giu;
+
+/**
+ * Pre-processing 3: repeat markers are removed from labels and lyrics alike
+ * ("Lorem ipsum (x4)" -> "Lorem ipsum"). Returns the cleaned line and how many
+ * markers were removed.
+ */
+export function stripMultipliers(line: string): { line: string; removed: number } {
+  let removed = 0;
+  const count = () => {
+    removed++;
+    return ' ';
+  };
+  const cleaned = line.replace(BRACKETED_MULTIPLIER, count).replace(BARE_MULTIPLIER, count);
+  return { line: removed ? cleaned.replace(/\s+/g, ' ').trim() : line, removed };
+}
+
 export interface Preprocessed {
   lines: string[];
   chordLines: number;
+  multipliers: number;
 }
 
-/** Both pre-processing passes, in order, before any formatting. */
+/**
+ * The pre-processing passes, per line, before any formatting: alignment dots,
+ * then repeat markers (so "G C (x2)" is recognisably a chord line), then chord
+ * lines. A line left empty is kept as a blank line.
+ */
 export function preprocess(raw: string): Preprocessed {
   let chordLines = 0;
+  let multipliers = 0;
   const lines: string[] = [];
   for (const rawLine of raw.replace(/\r\n?/g, '\n').split('\n')) {
-    const line = sanitizeDots(rawLine);
+    const { line, removed } = stripMultipliers(sanitizeDots(rawLine));
+    multipliers += removed;
     if (line && isChordLine(line)) {
       chordLines++;
       continue;
     }
     lines.push(line);
   }
-  return { lines, chordLines };
+  return { lines, chordLines, multipliers };
 }
 
 /** Title: first line with trailing bracketed metadata ("[Lyrics, 139 bpm]") removed. */
@@ -246,24 +275,56 @@ export function cleanTitle(line: string): string {
 }
 
 /**
- * Wrap one lyric line to `max` characters at word boundaries. Words are never
- * split: a single word longer than `max` gets a line of its own (and is reported).
+ * Wrap one lyric line to `max` characters at word boundaries, balanced: it
+ * uses the fewest lines that fit, then spreads the words so those lines are as
+ * even as possible (a 28-character line becomes 14 + 13, not 24 + 4). Words are
+ * never split: a single word longer than `max` gets a line of its own (and is reported).
  */
 export function wrapLine(line: string, max = MAX_LINE): { lines: string[]; longWord: string | null } {
   const words = line.trim().split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = '';
-  let longWord: string | null = null;
-  for (const word of words) {
-    if (word.length > max) longWord ??= word;
-    if (!current) current = word;
-    else if (current.length + 1 + word.length <= max) current += ` ${word}`;
-    else {
-      lines.push(current);
-      current = word;
+  const n = words.length;
+  const longWord = words.find((w) => w.length > max) ?? null;
+  if (!n) return { lines: [], longWord };
+
+  // Length of words[a..b) joined by single spaces; a lone over-long word is allowed.
+  const prefix = [0];
+  for (const w of words) prefix.push(prefix[prefix.length - 1] + w.length);
+  const width = (a: number, b: number) => prefix[b] - prefix[a] + (b - a - 1);
+  const fits = (a: number, b: number) => width(a, b) <= max || b - a === 1;
+
+  // Fewest lines possible: a greedy fill finds the count (not the breaks).
+  let lineCount = 1;
+  for (let a = 0, b = 1; b <= n; b++) {
+    if (!fits(a, b)) {
+      lineCount++;
+      a = b - 1;
     }
   }
-  if (current) lines.push(current);
+  if (lineCount === 1) return { lines: [words.join(' ')], longWord };
+
+  // Exactly lineCount lines, minimising the sum of squared lengths: the most even split.
+  // cost[k][i]: best cost for words[0..i) on k lines; from[k][i]: where line k starts.
+  const cost = Array.from({ length: lineCount + 1 }, () => new Array<number>(n + 1).fill(Infinity));
+  const from = Array.from({ length: lineCount + 1 }, () => new Array<number>(n + 1).fill(0));
+  cost[0][0] = 0;
+  for (let k = 1; k <= lineCount; k++) {
+    for (let i = 1; i <= n; i++) {
+      for (let a = i - 1; a >= 0 && fits(a, i); a--) {
+        const c = cost[k - 1][a] + width(a, i) ** 2;
+        // <= keeps the earliest start among ties, so when two splits are equally even the extra word goes below.
+        if (c <= cost[k][i]) {
+          cost[k][i] = c;
+          from[k][i] = a;
+        }
+      }
+    }
+  }
+  const lines: string[] = [];
+  for (let k = lineCount, i = n; k > 0; k--) {
+    const a = from[k][i];
+    lines.unshift(words.slice(a, i).join(' '));
+    i = a;
+  }
   return { lines, longWord };
 }
 
@@ -322,9 +383,10 @@ export interface FormatResult {
 }
 
 export function formatSong(raw: string): FormatResult {
-  const { lines, chordLines } = preprocess(raw);
+  const { lines, chordLines, multipliers } = preprocess(raw);
   const warnings: string[] = [];
   if (chordLines) warnings.push(`Removed ${chordLines} chord line${chordLines === 1 ? '' : 's'}.`);
+  if (multipliers) warnings.push(`Removed ${multipliers} repeat marker${multipliers === 1 ? '' : 's'} (x2, ×4, …).`);
 
   const titleIndex = lines.findIndex((l) => l.trim());
   if (titleIndex === -1) return { text: '', title: '', groups: [], warnings };

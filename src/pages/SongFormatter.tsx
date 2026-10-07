@@ -7,7 +7,7 @@ import { Toast } from '@/components/Toast';
 import { MAX_LINE, formatSong } from '@/songs/formatSong';
 import { blurText, rowReveal, springs, staggerContainer, staggerItem } from '@/lib/motion';
 
-/** Placeholder text only: shows every rule (alignment dots, chord lines, metadata, Spanish labels, multipliers, wrapping, chunking). */
+/** Placeholder text only: shows every rule (alignment dots, chord lines, repeat markers, metadata, Spanish labels, multipliers, wrapping, chunking). */
 const EXAMPLE = `Lorem.Ipsum.Dolor [G, 70 bpm, 4/4]
 Written.by.Consectetur.Adipiscing
 Key:.G........Tempo:.70
@@ -30,7 +30,7 @@ C.......G/B.......Am7
 Ullamco laboris nisi ut aliquip ex ea commodo
 Duis aute irure dolor
 In reprehenderit in voluptate
-Velit esse cillum dolore
+Velit esse cillum dolore (x2)
 
 Puente ×4
 Excepteur sint occaecat cupidatat
@@ -114,7 +114,7 @@ const SongFormatter = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-20 sm:p-6">
-      <Toast id={toastId} message="Remember to remove the period under [Blank]" onClose={closeToast} />
+      <Toast id={toastId} message="Remember to remove the period (.) under [Blank]" duration={5000} onClose={closeToast} />
       <IconButton onClick={() => navigate('/')} className="fixed top-4 left-4 z-10" aria-label="Back to Screen Team App">
         <ArrowLeft className="w-5 h-5" />
       </IconButton>
