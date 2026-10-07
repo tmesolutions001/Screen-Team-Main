@@ -4,7 +4,8 @@ import { AnimatePresence, motion, useIsPresent } from 'motion/react';
 import { GameHeader } from '@/components/GameHeader';
 import { AnswerField } from '@/components/AnswerField';
 import { CountUp } from '@/components/CountUp';
-import { MODE_LABEL, parseMode, type GameMode } from '@/game/engine';
+import { parseMode, type GameMode } from '@/game/engine';
+import { useSimText, type SimText } from '@/game/i18n';
 import { useGame } from '@/game/useGame';
 import { blurText, swapProps } from '@/lib/motion';
 import type { EndState } from './End';
@@ -21,14 +22,13 @@ const Kbd = ({ children }: { children: React.ReactNode }) => (
   <kbd className="glass-flat rounded-md px-1.5 py-0.5 font-mono text-xs text-foreground">{children}</kbd>
 );
 
-/** Submit-key hint under the input, keyed by the mode being drilled; mirrors BibleGame.spaceAction. */
-const HINT: Record<GameMode, React.ReactNode> = {
-  classic: <><Kbd>Enter</Kbd> to submit</>,
-  'chapter-verse': <><Kbd>Enter</Kbd> to submit</>,
-  book: <><Kbd>Space</Kbd> or <Kbd>Enter</Kbd> to submit</>,
-  // Never drilled directly: Warm Up always reports the segment's own mode.
-  warmup: <><Kbd>Enter</Kbd> to submit</>,
-};
+/** Submit-key hint under the input, for the mode being drilled; mirrors BibleGame.spaceAction (Book submits on Space). */
+const Hint = ({ mode, t }: { mode: GameMode; t: SimText['round'] }) =>
+  mode === 'book' ? (
+    <><Kbd>{t.space}</Kbd> {t.or} <Kbd>{t.enter}</Kbd> {t.toSubmit}</>
+  ) : (
+    <><Kbd>{t.enter}</Kbd> {t.toSubmit}</>
+  );
 
 const Game = () => {
   const navigate = useNavigate();
@@ -36,9 +36,11 @@ const Game = () => {
   const gameMode = parseMode(mode);
   // False once this page starts animating out; stops the clock and speech straight away.
   const isPresent = useIsPresent();
+  // The language is fixed for the round: it is chosen on the menu.
+  const { lang, t } = useSimText();
   const {
     prompt, score, total, missed, timeLeft, progress, isOver, feedback, activeMode, phase, accepting, submit, spaceSubmits,
-  } = useGame(gameMode, isPresent);
+  } = useGame(gameMode, isPresent, lang);
   const isWarmup = gameMode === 'warmup';
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +61,7 @@ const Game = () => {
     const transitionTimer = setTimeout(() => {
       const state: EndState = {
         mode: gameMode,
+        lang,
         score,
         missedPrompts: missed,
         totalPrompts: total,
@@ -67,7 +70,7 @@ const Game = () => {
       navigate('/end', { state });
     }, 3000);
     return () => clearTimeout(transitionTimer);
-  }, [isOver, navigate, gameMode, score, missed, total]);
+  }, [isOver, navigate, gameMode, lang, score, missed, total]);
 
   // Stable identity so the memoized HUD is not re-rendered by every keystroke.
   const quit = useCallback(() => navigate('/simulator'), [navigate]);
@@ -96,8 +99,8 @@ const Game = () => {
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-6">
       <GameHeader
-        modeLabel={MODE_LABEL[gameMode]}
-        segmentLabel={isWarmup ? MODE_LABEL[activeMode] : undefined}
+        modeLabel={t.modes[gameMode]}
+        segmentLabel={isWarmup ? t.modes[activeMode] : undefined}
         score={score}
         total={total}
         timeLeft={formatTime(timeLeft)}
@@ -105,6 +108,7 @@ const Game = () => {
         progress={progress}
         feedback={feedback}
         onQuit={quit}
+        labels={t.round}
       />
 
       <AnimatePresence mode="popLayout">
@@ -113,7 +117,7 @@ const Game = () => {
             <h2 className="text-8xl font-bold tracking-tight text-gradient tabular-nums">
               <CountUp value={score} />/{total}
             </h2>
-            <p className="mt-3 text-lg text-muted-foreground">{accuracy}% accuracy</p>
+            <p className="mt-3 text-lg text-muted-foreground">{t.round.accuracy(accuracy)}</p>
           </motion.div>
         ) : (
           // initial={false} here, not on AnimatePresence: the presence-level flag is
@@ -131,7 +135,7 @@ const Game = () => {
                     {...blurText}
                     className="col-start-1 row-start-1 text-3xl font-bold tracking-tight text-gradient-warm"
                   >
-                    {MODE_LABEL[activeMode]}
+                    {t.modes[activeMode]}
                   </motion.p>
                 ) : accepting ? (
                   <motion.p
@@ -139,7 +143,7 @@ const Game = () => {
                     {...blurText}
                     className="col-start-1 row-start-1 text-xs uppercase tracking-[0.2em] text-muted-foreground"
                   >
-                    Listen · type the reference
+                    {t.round.listen}
                   </motion.p>
                 ) : null}
               </AnimatePresence>
@@ -147,6 +151,7 @@ const Game = () => {
             <form onSubmit={handleSubmit} className="w-full">
               <AnswerField
                 ref={inputRef}
+                label={t.round.answer}
                 value={input}
                 // Typing is held until the countdown ends, so nothing is half-typed when the segment starts.
                 onValueChange={(value) => accepting && setInput(value)}
@@ -155,7 +160,7 @@ const Game = () => {
                 countdown={phase?.kind === 'count' ? phase.count : null}
               />
             </form>
-            <p className="text-center text-sm text-muted-foreground">{HINT[activeMode]}</p>
+            <p className="text-center text-sm text-muted-foreground"><Hint mode={activeMode} t={t.round} /></p>
           </motion.main>
         )}
       </AnimatePresence>

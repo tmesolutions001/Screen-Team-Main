@@ -54,10 +54,14 @@ export interface IssueButtonProps {
   diagnosis: Diagnosis;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Popover text in the round's language. */
+  text?: { fastest: string; whyWrong: string };
 }
 
+const ENGLISH_TEXT = { fastest: 'Fastest', whyWrong: 'Why this was marked wrong' };
+
 /** Results-table pill naming the main issue; opens a popover explaining every issue. */
-export const IssueButton = ({ diagnosis, open, onOpenChange }: IssueButtonProps) => {
+export const IssueButton = ({ diagnosis, open, onOpenChange, text = ENGLISH_TEXT }: IssueButtonProps) => {
   const { issues, fastest } = diagnosis;
   const id = useId();
   const pillRef = useRef<HTMLButtonElement>(null);
@@ -174,7 +178,7 @@ export const IssueButton = ({ diagnosis, open, onOpenChange }: IssueButtonProps)
             ref={popRef}
             id={id}
             role="dialog"
-            aria-label="Why this was marked wrong"
+            aria-label={text.whyWrong}
             aria-hidden={!open}
             custom={place?.side ?? 'below'}
             variants={popoverVariants}
@@ -208,7 +212,7 @@ export const IssueButton = ({ diagnosis, open, onOpenChange }: IssueButtonProps)
               ))}
             </ul>
             <div className="mt-4 flex items-baseline justify-between gap-3 border-t border-glass-border pt-3">
-              <span className="text-xs uppercase tracking-wider text-muted-foreground">Fastest</span>
+              <span className="text-xs uppercase tracking-wider text-muted-foreground">{text.fastest}</span>
               <span className="font-mono text-base font-semibold text-gradient">{fastest}</span>
             </div>
           </motion.div>,

@@ -68,7 +68,18 @@ export const bookVariations = {
     "Revelation": ["re", "rev", "reve", "revel", "revela", "revelat", "revelati", "revelatio", "revelation"]
 };
 
-export const validateInput = (input: string, prompt: string): boolean => {
+/** Typed accents don't matter to the lookup ("génesis" = "genesis"). */
+const unaccent = (text: string) => text.replace(/[áéíóúü]/g, (c) => ({ á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u', ü: 'u' })[c] ?? c);
+
+/**
+ * True when `input` ("gen 1 1") opens exactly the prompt ("Genesis 1:1").
+ * `variations` is the abbreviation table of the round's language (English by default).
+ */
+export const validateInput = (
+    input: string,
+    prompt: string,
+    variations: Readonly<Record<string, readonly string[]>> = bookVariations
+): boolean => {
     // Split the prompt into book and reference
     // The reference is the last word and everything before it is the book. Splitting on
     // the first space broke every multi-word book ("2 Kings", "Song of Solomon").
@@ -78,7 +89,7 @@ export const validateInput = (input: string, prompt: string): boolean => {
     const [promptChapter, promptVerse] = promptReference.split(':');
 
     // Split user input into parts (assuming format like "gen 1 1" or "genesis 1 1")
-    const inputParts = input.toLowerCase().trim().split(/\s+/);
+    const inputParts = unaccent(input.toLowerCase()).trim().split(/\s+/);
     if (inputParts.length < 3) return false;
 
     // Extract book, chapter, and verse from input
@@ -87,9 +98,7 @@ export const validateInput = (input: string, prompt: string): boolean => {
     const inputVerse = inputParts[inputParts.length - 1];
 
     // Find the full book name that matches the input
-    const fullBookName = Object.entries(bookVariations).find(([book, variations]) => {
-        return variations.includes(inputBook.toLowerCase());
-    })?.[0];
+    const fullBookName = Object.entries(variations).find(([, abbreviations]) => abbreviations.includes(inputBook))?.[0];
 
     // Validate all three parts
     const isBookValid = fullBookName === promptBook;

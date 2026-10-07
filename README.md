@@ -2,14 +2,18 @@
 
 Tools for ProPresenter operators.
 
-- **Simulator** — rapid-fire scripture reference trainer. A prompt is spoken aloud
-  (e.g. "John 3 verse 16") and the operator types it as fast as possible; a round lasts 60 seconds.
-  Modes: **Classic** (book chapter verse), **Chapter–Verse**, **Book**, and **Warm Up**
-  (Chapter–Verse, Book, then Classic, 30 s each; each segment's name is shown and spoken,
-  then a 3-2-1 countdown, with a switch sound between segments; the clock only runs while playing).
-  The results table explains every miss: an **Issue** pill (e.g. *Opens earlier book*) opens a
-  popup saying what the typing would actually have opened, what was missing, and the fastest
-  correct answer. Colons count as a miss: typing a space is faster.
+- **Simulator** — rapid-fire scripture reference trainer. A prompt is spoken aloud (e.g. "John 3
+  verse 16") and the operator types it as fast as possible; a round lasts 60 seconds. Modes:
+  **Classic** (book chapter verse), **Chapter–Verse**, **Book**, and **Warm Up** (Chapter–Verse,
+  Book, then Classic, 30 s each; each segment's name is shown and spoken, then a 3-2-1 countdown,
+  with a switch sound between segments; the clock only runs while playing). The results table
+  explains every miss: an **Issue** pill (e.g. *Opens earlier book*) opens a popup saying what the
+  typing would actually have opened, what was missing, and the fastest correct answer. Colons count
+  as a miss: typing a space is faster. **English / Español:** a pill on the simulator menu switches
+  the simulator (menu, rounds, results, narration) to Spanish: Spanish book names from
+  `public/BookInfoEs.xml`, abbreviations in `src/utils/bookValidationEs.ts` (first come, first
+  served; the Gospels need `S.`, e.g. `s. mat`), Spanish speech and translated Issue explanations.
+  The rest of the app stays in English.
 - **Song Formatter** — paste raw lyrics, copy slide-ready text. First, alignment dots
   (`....Lorem.ipsum.dolor`) become spaces, repeat markers (`x2`, `(x4)`, `×4`) are removed from
   labels and lyrics, and chord-only lines (`G C/G`, `Em C G`, `N.C.`, `|BM / D/F# / | G / / /`) are

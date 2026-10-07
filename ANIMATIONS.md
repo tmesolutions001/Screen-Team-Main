@@ -91,7 +91,11 @@ Two strategies, depending on what the effect means:
 - **Layer** for events: each event gets its own short-lived element, so overlapping events overlap
   visually instead of waiting. The Edit/Save **sparkle-grain wave** mounts one wave per click (the
   last six are kept) and each removes itself on `animationend`. Spam-clicking produces a cascade
-  of overlapping waves, never a stutter.
+  of overlapping waves, never a stutter. The same `GrainWaves` component powers the simulator's
+  language pill, sweeping the whole page (purple for English, green for Español); its state is
+  read from the settings store at the moment of the click, so spam-switching never desyncs.
+- **Cross-fade text in place** when its value changes (a language switch): `SwapText` puts the old
+  and new text in one grid cell and blurs between them, so switching again mid-swap retargets.
 
 ### 3. Replace, don't stack, for feedback flashes
 

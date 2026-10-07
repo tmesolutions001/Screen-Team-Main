@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BibleGame, type GameMode, type MissedPrompt } from './engine';
 import { SEGMENT_SPEECH, WARMUP_SEGMENTS, buildSchedule, type WarmupPhase } from './warmup';
+import type { Lang } from './books';
 import { playResult, playSegmentSwitch, playThump } from '@/lib/sfx';
 
 export const ROUND_SECONDS = 60;
@@ -22,7 +23,7 @@ const initialSeconds = (mode: GameMode) => (mode === 'warmup' ? FIRST_SEGMENT.se
  *   stop immediately instead of running on until the exit animation unmounts
  *   the page. If the exit is reversed, the round resumes against the same deadline.
  */
-export function useGame(mode: GameMode, active = true) {
+export function useGame(mode: GameMode, active = true, lang: Lang = 'en') {
   const [game, setGame] = useState<BibleGame | null>(null);
   const [prompt, setPrompt] = useState('');
   const [score, setScore] = useState(0);
@@ -53,7 +54,8 @@ export function useGame(mode: GameMode, active = true) {
           setFeedback((prev) => ({ id: (prev?.id ?? 0) + 1, correct }));
         },
       },
-      mode
+      mode,
+      lang
     );
     setFeedback(null);
     setActiveMode(initialMode(mode));
@@ -71,7 +73,7 @@ export function useGame(mode: GameMode, active = true) {
     warmupStartRef.current = null;
     enteredPhaseRef.current = -1;
 
-    newGame.loadXmlDocument('/BookInfo.xml').then(() => {
+    newGame.loadXmlDocument().then(() => {
       if (cancelled) return;
       newGame.start();
       setGame(newGame);
@@ -81,7 +83,7 @@ export function useGame(mode: GameMode, active = true) {
       cancelled = true;
       newGame.cancelSpeech();
     };
-  }, [mode]);
+  }, [mode, lang]);
 
   useEffect(() => {
     if (!game) return;
@@ -107,7 +109,7 @@ export function useGame(mode: GameMode, active = true) {
             setActiveMode(segment.mode);
             setTimeLeft(segment.seconds);
             setProgress(0);
-            game.announce(SEGMENT_SPEECH[segment.mode] ?? segment.mode);
+            game.announce(SEGMENT_SPEECH[lang][segment.mode] ?? segment.mode);
             break;
           case 'count':
             playThump();
@@ -179,7 +181,7 @@ export function useGame(mode: GameMode, active = true) {
 
     tick();
     return () => clearTimeout(timeout);
-  }, [game, mode, active]);
+  }, [game, mode, active, lang]);
 
   // Warm Up only takes answers while a segment is being played.
   const accepting = mode !== 'warmup' || phase?.kind === 'play';

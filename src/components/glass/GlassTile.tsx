@@ -6,8 +6,8 @@ import { useSpotlight } from '@/hooks/useSpotlight';
 
 export interface GlassTileProps extends Omit<HTMLMotionProps<'button'>, 'children' | 'title'> {
   icon: ReactNode;
-  title: string;
-  description: string;
+  title: ReactNode;
+  description: ReactNode;
   /** Small tag beside the title, e.g. "Coming soon". */
   badge?: string;
   tone?: 'accent' | 'warm';

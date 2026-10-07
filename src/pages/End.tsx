@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home as HomeIcon, LayoutGrid, RotateCcw } from 'lucide-react';
-import { MODE_LABEL, type GameMode, type MissedPrompt } from '@/game/engine';
+import type { GameMode, MissedPrompt } from '@/game/engine';
+import type { Lang } from '@/game/books';
+import { SIM_TEXT } from '@/game/i18n';
 import { GlassButton, GlassPanel, IconButton } from '@/components/glass';
 import { IssueButton } from '@/components/IssueButton';
 import { rowReveal, springs, swapProps } from '@/lib/motion';
@@ -13,6 +15,8 @@ export interface EndState {
   totalPrompts: number;
   missedPrompts: MissedPrompt[];
   hasErrors: boolean;
+  /** The language the round was played in; the results use it too. */
+  lang?: Lang;
 }
 
 const MotionPanel = motion.create(GlassPanel);
@@ -61,11 +65,12 @@ const End = () => {
   if (!state) return null;
 
   const { mode, score, totalPrompts, missedPrompts, hasErrors } = state;
+  const t = SIM_TEXT[state.lang ?? 'en'];
   const accuracy = totalPrompts ? Math.round((score / totalPrompts) * 100) : 0;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 relative">
-      <IconButton onClick={() => navigate('/')} className="fixed top-4 right-4" aria-label="Back to Screen Team App">
+      <IconButton onClick={() => navigate('/')} className="fixed top-4 right-4" aria-label={t.results.home}>
         <HomeIcon className="w-5 h-5" />
       </IconButton>
 
@@ -75,33 +80,33 @@ const End = () => {
             <h1 className="text-8xl font-bold tracking-tight text-gradient tabular-nums">
               {score}/{totalPrompts}
             </h1>
-            <p className="mt-3 text-lg text-muted-foreground">{accuracy}% accuracy</p>
+            <p className="mt-3 text-lg text-muted-foreground">{t.round.accuracy(accuracy)}</p>
           </motion.div>
         ) : (
           <MotionPanel key="results" {...swapProps} className="w-full max-w-4xl p-5 sm:p-8">
             <header className="flex flex-wrap items-end justify-between gap-6">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Round complete · {MODE_LABEL[mode]}
+                  {t.results.roundComplete} · {t.modes[mode]}
                 </p>
                 <h1 className="mt-1 text-6xl font-bold tracking-tight text-gradient tabular-nums leading-none">
-                  {hasErrors ? `${score}/${totalPrompts}` : totalPrompts ? 'Perfect round' : 'No answers'}
+                  {hasErrors ? `${score}/${totalPrompts}` : totalPrompts ? t.results.perfect : t.results.noAnswers}
                 </h1>
               </div>
               <div className="flex gap-3">
-                <Stat label="Accuracy" value={`${accuracy}%`} />
-                <Stat label="Correct" value={String(score)} tone="ok" />
-                <Stat label="Missed" value={String(missedPrompts.length)} tone={hasErrors ? 'miss' : undefined} />
+                <Stat label={t.results.accuracy} value={`${accuracy}%`} />
+                <Stat label={t.results.correct} value={String(score)} tone="ok" />
+                <Stat label={t.results.missed} value={String(missedPrompts.length)} tone={hasErrors ? 'miss' : undefined} />
               </div>
             </header>
 
             {hasErrors ? (
-              <section className="mt-8" aria-label="What you missed">
+              <section className="mt-8" aria-label={t.results.missedSection}>
                 <div className={`${ROW_GRID} px-3 pb-2 text-xs uppercase tracking-wider text-muted-foreground border-b border-glass-border`}>
                   <span>#</span>
-                  <span>Prompt</span>
-                  <span>You typed</span>
-                  <span className="hidden sm:block text-right">Issue</span>
+                  <span>{t.results.prompt}</span>
+                  <span>{t.results.youTyped}</span>
+                  <span className="hidden sm:block text-right">{t.results.issue}</span>
                 </div>
                 <ol>
                   {missedPrompts.slice(0, visibleMissed).map((item, i) => (
@@ -121,6 +126,7 @@ const End = () => {
                           transition={{ ...springs.snappy, delay: 0.12 }}
                         >
                           <IssueButton
+                            text={t.results}
                             diagnosis={item.diagnosis}
                             open={openIssue === item.id}
                             onOpenChange={(open) => setOpenIssue(open ? item.id : (cur) => (cur === item.id ? null : cur))}
@@ -134,17 +140,17 @@ const End = () => {
             ) : (
               <p className="mt-8 text-muted-foreground">
                 {totalPrompts
-                  ? `Every prompt answered correctly — ${totalPrompts} for ${totalPrompts}.`
-                  : 'No prompts were answered this round.'}
+                  ? t.results.allCorrect(totalPrompts)
+                  : t.results.noneAnswered}
               </p>
             )}
 
             <footer className="mt-8 flex justify-end gap-3">
               <GlassButton onClick={() => navigate('/simulator')}>
-                <LayoutGrid className="w-4 h-4" /> Modes
+                <LayoutGrid className="w-4 h-4" /> {t.results.modes}
               </GlassButton>
               <GlassButton variant="accent" onClick={() => navigate(modePath(mode))}>
-                <RotateCcw className="w-4 h-4" /> Play again
+                <RotateCcw className="w-4 h-4" /> {t.results.playAgain}
               </GlassButton>
             </footer>
           </MotionPanel>

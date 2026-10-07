@@ -1,13 +1,16 @@
 import { useSyncExternalStore } from 'react';
+import type { Lang } from '@/game/books';
 
 /** User preferences, persisted to localStorage and shared across components. */
 export interface Settings {
   /** Play the correct/wrong answer sounds. */
   sfx: boolean;
+  /** Simulator language (menu, rounds, results). The rest of the app stays in English. */
+  simLang: Lang;
 }
 
 const STORAGE_KEY = 'screen-team:settings';
-const defaults: Settings = { sfx: true };
+const defaults: Settings = { sfx: true, simLang: 'en' };
 
 const load = (): Settings => {
   try {

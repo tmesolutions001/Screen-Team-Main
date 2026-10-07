@@ -10,6 +10,7 @@ import {
   type CSSProperties,
 } from 'react';
 import { cn } from '@/lib/utils';
+import { GrainWaves, type GrainWavesHandle } from '@/components/GrainWaves';
 
 /** One character of the display layer. New ones (typed or pasted while editing) blur in. */
 interface Glyph {
@@ -23,14 +24,6 @@ interface Glyph {
 const FRESH_MS = 300;
 
 export type WaveKind = 'edit' | 'save';
-
-interface Wave {
-  id: number;
-  kind: WaveKind;
-  x: number;
-  y: number;
-  radius: number;
-}
 
 export interface EditableOutputHandle {
   textarea: HTMLTextAreaElement | null;
@@ -109,8 +102,7 @@ export const EditableOutput = forwardRef<EditableOutputHandle, EditableOutputPro
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const layerRef = useRef<HTMLDivElement>(null);
     const glyphsRef = useRef<Glyph[]>(toGlyphs(value, 0));
-    const [waves, setWaves] = useState<Wave[]>([]);
-    const waveId = useRef(0);
+    const wavesRef = useRef<GrainWavesHandle>(null);
 
     // Only edits typed while editing animate; regenerated output swaps in quietly.
     glyphsRef.current = diffGlyphs(glyphsRef.current, value, editing);
@@ -146,21 +138,10 @@ export const EditableOutput = forwardRef<EditableOutputHandle, EditableOutputPro
         syncScroll();
       },
       wave(kind, from) {
-        const box = boxRef.current?.getBoundingClientRect();
-        if (!box) return;
-        const origin = from?.getBoundingClientRect();
-        // From the button's centre (above the box), or the top-right corner without one.
-        const x = origin ? origin.left + origin.width / 2 - box.left : box.width;
-        const y = origin ? origin.top + origin.height / 2 - box.top : 0;
-        // Far enough to sweep past the farthest corner.
-        const radius = Math.max(...[[0, 0], [box.width, 0], [0, box.height], [box.width, box.height]].map(([cx, cy]) => Math.hypot(cx - x, cy - y))) + 60;
-        const id = ++waveId.current;
-        // Keep the last few: spam-clicking layers waves instead of queueing them.
-        setWaves((w) => [...w.slice(-5), { id, kind, x, y, radius }]);
+        wavesRef.current?.fire(kind === 'save' ? 'ok' : 'accent', from);
       },
     }));
 
-    const endWave = (id: number) => setWaves((w) => w.filter((x) => x.id !== id));
 
     return (
       <div
@@ -195,22 +176,7 @@ export const EditableOutput = forwardRef<EditableOutputHandle, EditableOutputPro
             editing ? 'caret-[var(--accent-2)]' : 'caret-transparent'
           )}
         />
-        {waves.map((w) => (
-          <span
-            key={w.id}
-            aria-hidden
-            className="grain-wave"
-            onAnimationEnd={() => endWave(w.id)}
-            style={
-              {
-                left: w.x,
-                top: w.y,
-                '--r': `${w.radius}px`,
-                '--wave': w.kind === 'save' ? 'var(--ok)' : 'var(--accent-2)',
-              } as CSSProperties
-            }
-          />
-        ))}
+        <GrainWaves ref={wavesRef} />
       </div>
     );
   }

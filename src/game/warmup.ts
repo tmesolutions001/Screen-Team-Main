@@ -1,4 +1,5 @@
 import type { GameMode } from './engine';
+import type { Lang } from './books';
 
 /**
  * Warm Up: Chapter–Verse, then Book, then Classic. Each segment opens with its
@@ -12,10 +13,9 @@ export const WARMUP_SEGMENTS: ReadonlyArray<{ mode: GameMode; seconds: number }>
 ];
 
 /** Spoken segment names (the narrator reads "Chapter–Verse" badly). */
-export const SEGMENT_SPEECH: Partial<Record<GameMode, string>> = {
-  'chapter-verse': 'Chapter verse',
-  book: 'Book',
-  classic: 'Classic',
+export const SEGMENT_SPEECH: Record<Lang, Partial<Record<GameMode, string>>> = {
+  en: { 'chapter-verse': 'Chapter verse', book: 'Book', classic: 'Classic' },
+  es: { 'chapter-verse': 'Capítulo versículo', book: 'Libro', classic: 'Clásico' },
 };
 
 export type WarmupPhase =
