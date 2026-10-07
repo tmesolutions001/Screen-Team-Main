@@ -295,8 +295,10 @@ export function preprocess(raw: string): Preprocessed {
 
 /**
  * Obvious metadata, removed wherever it appears (unless the line is a group
- * label): a line fully in [brackets] or (parentheses), or one carrying tempo,
- * time-signature, key or credit details. Everything else is kept as lyrics.
+ * label), before the [Verse 1] fallback ever sees it: a line fully in
+ * [brackets] or (parentheses); one carrying tempo, time-signature, key or
+ * credit details ("] by …", "Words and Music by …"); or a roadmap (see
+ * isRoadmapLine). Everything else is kept as lyrics.
  */
 const METADATA_PATTERNS: RegExp[] = [
   /^\[.*\]$/, // [Default Arrangement], [Lyrics], [Spoken]
@@ -308,11 +310,38 @@ const METADATA_PATTERNS: RegExp[] = [
   /\bkey\s*:/i, // "Key: G"
   /\bccli\b/i,
   /©|\bcopyright\b/i,
-  /\bwritten by\b|\bwords and music\b/i,
+  // Credits: a closing bracket followed by "by" ("[Lorem] by Ipsum Dolor"), or a credit phrase.
+  /[\])]\s*by\b/i,
+  /\b(?:written|words|music|lyrics|letra|musica|arranged|arr|composed|produced|translated|traducido|adapted)(?:\s+(?:and|&|y)\s+\w+)?\s+by\b/i,
+  /\bwords and music\b/i,
+  // Spanish credits, only at the start of a line so lyrics like "... musica por ti" stay.
+  /^(?:letra|m[uú]sica|arreglos?|autor(?:es)?|traducci[oó]n)(?:\s+(?:y|&)\s+\p{L}+)?\s*:?\s+por(?!\p{L})/iu,
+  /[\])]\s*por\b/i,
 ];
 
+/** "C×2", "B1x2", "V2(x3)": a section abbreviation with a glued repeat marker. */
+const GLUED_MULTIPLIER = /\s*\(?\s*[x×]\s*\d+\s*\)?$/i;
+
+/**
+ * A roadmap: the arrangement written as a comma-separated list of sections
+ * ("Intro, V1, V2, C, V3, C×2, Vamp, B1×2"). At least three items, and nearly
+ * all of them (a stray word or "..." is allowed) read as group labels once their
+ * repeat markers are removed.
+ */
+export function isRoadmapLine(line: string): boolean {
+  const items = line
+    .split(/\s*[,;|/→>]\s*|\s+-\s+/)
+    .map((item) => item.replace(GLUED_MULTIPLIER, '').trim())
+    .filter(Boolean);
+  if (items.length < 3) return false;
+  // Labels in a roadmap are short codes ("C", "B1"), so judge each as a label, not as lyrics.
+  const sections = items.filter((item) => matchGroup(item.toUpperCase()) !== null).length;
+  return sections >= Math.max(3, Math.ceil(items.length * 0.8));
+}
+
 export function isMetadataLine(line: string): boolean {
-  return line !== '' && METADATA_PATTERNS.some((re) => re.test(line)) && matchGroup(line) === null;
+  if (line === '' || matchGroup(line) !== null) return false;
+  return METADATA_PATTERNS.some((re) => re.test(line)) || isRoadmapLine(line);
 }
 
 /** Title: first line with trailing bracketed metadata ("[Lyrics, 139 bpm]") removed. */
@@ -529,7 +558,7 @@ export function formatSong(raw: string, options: FormatOptions = {}): FormatResu
   }
 
   if (fellBack) warnings.push('Lyrics came before any group label, so they start under [Verse 1].');
-  if (metadata) warnings.push(`Removed ${metadata} line${metadata === 1 ? '' : 's'} of metadata (brackets, bpm, 4/4, key, credits).`);
+  if (metadata) warnings.push(`Removed ${metadata} line${metadata === 1 ? '' : 's'} of metadata (brackets, bpm, 4/4, key, credits, roadmap).`);
   if (!sections.length) warnings.push('No lyrics were found below the title.');
 
   const kept = pruneEmptyGroups(sections);
