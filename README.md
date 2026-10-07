@@ -14,7 +14,7 @@ Tools for ProPresenter operators.
   (`....Lorem.ipsum.dolor`) become spaces, repeat markers (`x2`, `(x4)`, `×4`) are removed from
   labels and lyrics, and chord-only lines (`G C/G`, `Em C G`, `N.C.`) are removed, and accented
   vowels lose their accent (á → a; ñ and ü are kept). The first line becomes `Title: …` (trailing
-  `[…]` metadata removed) Obvious metadata lines are dropped wherever they appear (fully [bracketed]
+  `[…]` metadata removed). Obvious metadata lines are dropped wherever they appear (fully [bracketed]
   or (parenthesised) lines, bpm, 4/4, `Key:`, credits); everything else is kept as lyrics. Lyrics
   before any group label start under `[Verse 1]`, and untagged stanzas stay under the current group.
   If the first line is itself a group label, the title is missing: a "No Title Detected!" popup asks
