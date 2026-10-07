@@ -215,16 +215,18 @@ const CHORD = /^[A-G][#b]?(?:maj|min|m|sus|dim|aug|add|M|\+|°|ø)?\d*(?:(?:maj|
 /** "No chord" (N.C., NC, N C), normalised; a line of only this is removed like any chord line. */
 const NO_CHORD = 'NC';
 /** Bar lines and dashes that sit between chords on a chart. */
-const CHORD_SPACER = /^[|/\-–—]+$/;
+const CHORD_SPACER = /^[|/\-–—%:]+$/;
 
 /**
  * Pre-processing 2: a line made only of chords and spacing ("G C/G",
- * "G/B Dsus", "Em C G", "N.C.") is a chord chart line, not lyrics. Run after
+ * "G/B Dsus", "Em C G", "N.C.", "|BM / D/F# / | G / / /") is a chord chart
+ * line, not lyrics. Bar lines (|), slashes, dashes and % repeat signs count as spacing. Run after
  * sanitizeDots so "G. C/G" is already "G C/G".
  */
 export function isChordLine(line: string): boolean {
   const tokens = line
-    .replace(/[()[\]]/g, ' ')
+    // Bar lines can be glued to chords ("|BM", "G|"): separate them first.
+    .replace(/[()[\]|]/g, ' | ')
     // "No chord": N.C. arrives here as "N C" (dots are already spaces), or as NC.
     .replace(/(?<![A-Za-z])N\s?C(?![A-Za-z])/gi, ' NC ')
     .split(/\s+/)
@@ -322,21 +324,41 @@ const METADATA_PATTERNS: RegExp[] = [
 /** "C×2", "B1x2", "V2(x3)": a section abbreviation with a glued repeat marker. */
 const GLUED_MULTIPLIER = /\s*\(?\s*[x×]\s*\d+\s*\)?$/i;
 
-/**
- * A roadmap: the arrangement written as a comma-separated list of sections
- * ("Intro, V1, V2, C, V3, C×2, Vamp, B1×2"). At least three items, and nearly
- * all of them (a stray word or "..." is allowed) read as group labels once their
- * repeat markers are removed.
- */
-export function isRoadmapLine(line: string): boolean {
-  const items = line
+/** Roadmap-only abbreviations that are not group labels on their own. */
+const ROADMAP_ABBREVIATIONS = new Set([
+  'INST', 'INSTR', 'INTER', 'INTERLUDE', 'RF', 'REF', 'TAG', 'VAMP', 'END', 'OUT', 'PC', 'PRE', 'BR', 'CH',
+  'TURN', 'TURNAROUND', 'SOLO', 'BRK', 'BREAK', 'IN', 'MOD', 'OB', 'BT',
+]);
+
+/** One roadmap item: a group label or roadmap abbreviation, optionally numbered (V1, B2, RF2). */
+const isRoadmapTag = (item: string) => {
+  const up = item.toUpperCase();
+  return ROADMAP_ABBREVIATIONS.has(up.replace(/\s*\d+$/, '')) || matchGroup(up) !== null;
+};
+
+const roadmapItems = (line: string) =>
+  line
     .split(/\s*[,;|/→>]\s*|\s+-\s+/)
     .map((item) => item.replace(GLUED_MULTIPLIER, '').trim())
     .filter(Boolean);
-  if (items.length < 3) return false;
-  // Labels in a roadmap are short codes ("C", "B1"), so judge each as a label, not as lyrics.
-  const sections = items.filter((item) => matchGroup(item.toUpperCase()) !== null).length;
-  return sections >= Math.max(3, Math.ceil(items.length * 0.8));
+
+/**
+ * A roadmap: the arrangement written as a comma-separated list of sections
+ * ("Intro, V1, V2, C, V3, C×2, Vamp, B1×2", "INST, INTER, RF, VAMP").
+ * - A line on its own: at least three items, nearly all (80%) section tags, or
+ *   two or more tags ending in a comma (the start of a roadmap that wraps).
+ * - `continuing` (the previous line was roadmap): any line made only of tags
+ *   that has a comma or two or more items, so a wrapped roadmap goes entirely.
+ *   A lone label like "Vamp" without a comma stays a group label.
+ */
+export function isRoadmapLine(line: string, continuing = false): boolean {
+  const items = roadmapItems(line);
+  if (!items.length) return false;
+  const tags = items.filter(isRoadmapTag).length;
+  const allTags = tags === items.length;
+  if (continuing && allTags && (line.includes(',') || items.length >= 2)) return true;
+  if (allTags && items.length >= 2 && /,\s*$/.test(line)) return true;
+  return items.length >= 3 && tags >= Math.max(3, Math.ceil(items.length * 0.8));
 }
 
 export function isMetadataLine(line: string): boolean {
@@ -411,21 +433,21 @@ export function wrapLine(line: string, max = MAX_LINE): { lines: string[]; longW
 
 /** Cost weights for chunking: fewest slides first, never a one-line slide if avoidable. */
 const SPLIT_PHRASE_COST = 3;
-/** Two stanzas on one slide: allowed, but a separate slide per stanza is preferred. */
-const STANZA_CROSS_COST = 2;
 const ONE_LINE_COST = 10;
 
 /**
  * Split a section into chunks of 2 or 3 lines. `phrases` are the wrapped pieces
  * of each source line; a chunk boundary inside a phrase (one lyric line spread
  * over two slides) is avoided unless it is the only way to keep every chunk at
- * 2–3 lines. `stanzaStarts` (line indexes) are preferred chunk boundaries: a
- * slide mixing two stanzas costs a little. Among equal options, uses the fewest chunks.
+ * 2–3 lines; exactly four lines is always 2 + 2. Called once per stanza, so
+ * stanza breaks are always slide breaks. Among equal options, uses the fewest chunks.
  */
-export function chunkPhrases(phrases: string[][], stanzaStarts: ReadonlySet<number> = new Set()): string[][] {
+export function chunkPhrases(phrases: string[][]): string[][] {
   const lines = phrases.flat();
   const n = lines.length;
   if (n <= 3) return n ? [lines] : [];
+  // Exactly four lines is always two slides of two, never 3 + 1.
+  if (n === 4) return [lines.slice(0, 2), lines.slice(2)];
 
   // Line indexes where a phrase ends: chunk boundaries there keep phrases whole.
   const phraseEnds = new Set<number>();
@@ -440,14 +462,7 @@ export function chunkPhrases(phrases: string[][], stanzaStarts: ReadonlySet<numb
     for (const size of [3, 2, 1]) {
       const end = i + size;
       if (end > n) continue;
-      let crossesStanza = false;
-      for (let k = i + 1; k < end; k++) if (stanzaStarts.has(k)) crossesStanza = true;
-      const cost =
-        1 +
-        best[end] +
-        (phraseEnds.has(end) ? 0 : SPLIT_PHRASE_COST) +
-        (crossesStanza ? STANZA_CROSS_COST : 0) +
-        (size === 1 ? ONE_LINE_COST : 0);
+      const cost = 1 + best[end] + (phraseEnds.has(end) ? 0 : SPLIT_PHRASE_COST) + (size === 1 ? ONE_LINE_COST : 0);
       if (cost < best[i]) {
         best[i] = cost;
         next[i] = size;
@@ -456,6 +471,27 @@ export function chunkPhrases(phrases: string[][], stanzaStarts: ReadonlySet<numb
   }
   const out: string[][] = [];
   for (let i = 0; i < n; i += next[i]) out.push(lines.slice(i, i + next[i]));
+  return out;
+}
+
+/**
+ * A stanza of a single line would be a one-line slide on its own; it joins the
+ * stanza after it (or, at the end, the one before) instead.
+ */
+function mergeLoneLines(stanzas: string[][][]): string[][][] {
+  const lineCount = (st: string[][]) => st.reduce((n, p) => n + p.length, 0);
+  const out: string[][][] = [];
+  let carry: string[][] = [];
+  for (const st of stanzas) {
+    const merged = [...carry, ...st];
+    carry = [];
+    if (lineCount(merged) === 1) carry = merged;
+    else out.push(merged);
+  }
+  if (carry.length) {
+    if (out.length) out[out.length - 1].push(...carry);
+    else out.push(carry);
+  }
   return out;
 }
 
@@ -519,8 +555,16 @@ export function formatSong(raw: string, options: FormatOptions = {}): FormatResu
   let metadata = 0;
   let fellBack = false;
   let stanzaBreak = false;
+  let inRoadmap = false;
   for (const raw of lines.slice(titleIndex + 1)) {
     const line = raw.trim().replace(/\s+/g, ' ');
+    // Roadmaps first, so a wrapped line like "VAMP, OUT" is not read as a label.
+    if (line && isRoadmapLine(line, inRoadmap)) {
+      metadata++;
+      inRoadmap = true;
+      continue;
+    }
+    inRoadmap = false;
     const match = matchGroup(line);
     const current = sections[sections.length - 1];
     if (match && 'group' in match) {
@@ -567,21 +611,19 @@ export function formatSong(raw: string, options: FormatOptions = {}): FormatResu
   // The inserted opening [Blank] is added here, after pruning, so it is never pruned.
   const blocks: string[] = [OPENING_BLANK];
   for (const { group, body } of kept.sections) {
-    const phrases: string[][] = [];
-    // Wrapped-line indexes where a new stanza begins, so chunks prefer not to straddle stanzas.
-    const stanzaStarts = new Set<number>();
-    let lineCount = 0;
+    // Stanzas (separated by blank lines in the source) are chunked one at a
+    // time, so a slide never straddles a stanza break.
+    const stanzas: string[][][] = [[]];
     for (const line of body) {
       if (line === STANZA_BREAK) {
-        stanzaStarts.add(lineCount);
+        if (stanzas[stanzas.length - 1].length) stanzas.push([]);
         continue;
       }
       const { lines: w, longWord } = wrapLine(line);
       if (longWord) warnings.push(`"${longWord}" is longer than ${MAX_LINE} characters; it has a line of its own rather than being split.`);
-      phrases.push(w);
-      lineCount += w.length;
+      stanzas[stanzas.length - 1].push(w);
     }
-    const chunks = chunkPhrases(phrases, stanzaStarts);
+    const chunks = mergeLoneLines(stanzas.filter((st) => st.length)).flatMap((st) => chunkPhrases(st));
     if (chunks.some((c) => c.length === 1)) warnings.push(`[${group}] has a slide with only one line.`);
     // Tag once; chunks after the first are separated by a blank line only.
     blocks.push([`[${group}]`, chunks.map((c) => c.join('\n')).join('\n\n')].filter(Boolean).join('\n'));
