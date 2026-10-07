@@ -48,26 +48,33 @@ export const GROUP_DICTIONARY: Record<string, Base> = Object.fromEntries(
   (
     [
       ['verse', ['verse', 'verses', 'vers', 'verso', 'versos', 'v', 'vs', 'vr', 'vrs', 'vse', 'estrofa', 'estrofas', 'vesre', 'vrese', 'verese', 'verce', 'versee']],
-      ['chorus', ['chorus', 'choruses', 'coro', 'coros', 'ch', 'cho', 'chor', 'chrs', 'chs', 'c', 'crs', 'chorous', 'chrous', 'chours', 'chorsu', 'corus', 'courus', 'cohrus', 'estribillo']],
+      ['chorus', ['chorus', 'choruses', 'coro', 'coros', 'ch', 'cho', 'chor', 'chrs', 'chs', 'c', 'crs', 'chorous', 'chrous', 'chours', 'chorsu', 'corus', 'courus', 'cohrus']],
       ['prechorus', ['prechorus', 'pre chorus', 'pre coro', 'precoro', 'pre estribillo', 'pc', 'pch', 'pre ch', 'pre', 'prechrous', 'pre chrous', 'pre chours', 'prechours', 'pre corus', 'pre chorous']],
       ['bridge', ['bridge', 'bridges', 'puente', 'br', 'brdg', 'brg', 'bdg', 'b', 'brige', 'brigde', 'bridg', 'birdge', 'bridgde', 'puenta', 'puemte']],
-      ['tag', ['tag', 'tags', 'tg', 'end tag', 'final tag', 'tag final']],
+      ['tag', ['tag', 'tags', 'tg', 'end tag', 'final tag', 'tag final', 'etiqueta', 'etiquetas']],
       ['intro', ['intro', 'introduccion', 'introduction', 'entrada', 'int', 'itnro', 'inro', 'intor']],
       ['outro', ['outro', 'final', 'salida', 'ending', 'end', 'coda', 'out', 'outr', 'otro outro', 'ourto']],
       ['outroBridge', ['outro bridge', 'bridge outro', 'final bridge', 'ending bridge', 'puente final', 'outro puente']],
       ['blank', ['blank', 'instrumental', 'inst', 'interlude', 'interludio', 'break', 'solo', 'musica', 'music', 'pausa']],
       ['vamp', ['vamp', 'vamps', 'vamp out', 'vamping']],
       ['bridgeTag', ['bridge tag', 'tag bridge', 'puente tag', 'tag puente']],
-      ['refrain', ['refrain', 'refran', 'refrian', 'refrains']],
+      ['refrain', ['refrain', 'refran', 'refrian', 'refrains', 'estribillo', 'estribillos']],
     ] as [Base, string[]][]
   ).flatMap(([base, labels]) => labels.map((l) => [l, base] as const))
 );
 
 /**
+ * Spanish -> English, as charts label them (numbers carry over: "Verso 1" ->
+ * Verse 1, "Coro 2" -> Chorus 2): Verso -> Verse, Coro -> Chorus, Puente ->
+ * Bridge, Pre-Coro / Precoro -> PreChorus, Final / Salida -> Outro, Etiqueta ->
+ * Tag, Estribillo -> Refrain. All are in GROUP_DICTIONARY above.
+ */
+
+/**
  * Labels that are also ordinary words or letters. Only treated as a group when
  * the line looks like a label: [bracketed], (parenthesised), "Ending:", or ALL CAPS.
  */
-const AMBIGUOUS = new Set(['v', 'c', 'b', 'end', 'final', 'out', 'break', 'solo', 'music', 'musica', 'pausa', 'entrada', 'salida']);
+const AMBIGUOUS = new Set(['v', 'c', 'b', 'end', 'out', 'break', 'solo', 'music', 'musica', 'pausa', 'entrada']);
 
 /** Bases that carry a number, and which numbers exist for them. */
 const NUMBERED: Partial<Record<Base, { label: string; max: number; unnumbered: MasterGroup | null }>> = {
@@ -162,7 +169,7 @@ export function matchGroup(rawLine: string): GroupMatch | UnsupportedGroup | nul
 const FUZZY_TARGETS: [string, Base][] = [
   ['chorus', 'chorus'], ['bridge', 'bridge'], ['verse', 'verse'], ['prechorus', 'prechorus'],
   ['intro', 'intro'], ['outro', 'outro'], ['refrain', 'refrain'], ['puente', 'bridge'],
-  ['estrofa', 'verse'], ['verso', 'verse'], ['estribillo', 'chorus'], ['interlude', 'blank'],
+  ['estrofa', 'verse'], ['verso', 'verse'], ['estribillo', 'refrain'], ['etiqueta', 'tag'], ['interlude', 'blank'],
   ['instrumental', 'blank'],
 ];
 
@@ -396,23 +403,50 @@ export function chunkPhrases(phrases: string[][]): string[][] {
  */
 export const OPENING_BLANK = '[Blank]\n.';
 
+export interface FormatOptions {
+  /**
+   * Only used when the title is missing (the first line is a group label):
+   * a typed title to use instead, or null to leave the Title line out.
+   */
+  title?: string | null;
+}
+
 export interface FormatResult {
   text: string;
   title: string;
+  /**
+   * The first line is a group label, so the song has no title line. Nothing is
+   * formatted until the caller passes `title` (a typed title, or null to skip).
+   */
+  missingTitle: boolean;
   /** Groups in output order, one entry per section in the source (before chunking). */
   groups: MasterGroup[];
   warnings: string[];
 }
 
-export function formatSong(raw: string): FormatResult {
+/** True when a line is a group label (Verse 1, Coro, …), not a song title. */
+const isGroupLabel = (line: string) => matchGroup(line) !== null;
+
+/** A typed title gets the same treatment as one read from the text. */
+const cleanTypedTitle = (title: string) => stripVowelAccents(title).replace(/\s+/g, ' ').trim();
+
+export function formatSong(raw: string, options: FormatOptions = {}): FormatResult {
   const { lines, chordLines, multipliers } = preprocess(raw);
   const warnings: string[] = [];
   if (chordLines) warnings.push(`Removed ${chordLines} chord line${chordLines === 1 ? '' : 's'}.`);
   if (multipliers) warnings.push(`Removed ${multipliers} repeat marker${multipliers === 1 ? '' : 's'} (x2, ×4, …).`);
 
-  const titleIndex = lines.findIndex((l) => l.trim());
-  if (titleIndex === -1) return { text: '', title: '', groups: [], warnings };
-  const title = cleanTitle(lines[titleIndex]);
+  const firstIndex = lines.findIndex((l) => l.trim());
+  if (firstIndex === -1) return { text: '', title: '', missingTitle: false, groups: [], warnings };
+
+  // A first line that reads as a group label means the title is missing: that
+  // line is the song's first section, not a title to strip.
+  const missingTitle = isGroupLabel(lines[firstIndex]);
+  if (missingTitle && options.title === undefined) {
+    return { text: '', title: '', missingTitle, groups: [], warnings };
+  }
+  const title = missingTitle ? (options.title ? cleanTypedTitle(options.title) : '') : cleanTitle(lines[firstIndex]);
+  const titleIndex = missingTitle ? firstIndex - 1 : firstIndex;
 
   // Sections: each recognised group label starts one; everything before the
   // first one (credits, keys, bpm, "Lyrics" headers) is metadata and dropped.
@@ -470,8 +504,9 @@ export function formatSong(raw: string): FormatResult {
   }
 
   // Absolute last step: everything in capitals. toUpperCase keeps ñ as Ñ.
-  const text = [`Title: ${title}`, ...blocks].join('\n\n').toUpperCase();
-  return { text, title, groups: kept.sections.map((s) => s.group), warnings };
+  // Skipped title: no Title line at all, the song opens on [Blank].
+  const text = [...(title ? [`Title: ${title}`] : []), ...blocks].join('\n\n').toUpperCase();
+  return { text, title, missingTitle, groups: kept.sections.map((s) => s.group), warnings };
 }
 
 interface Section {

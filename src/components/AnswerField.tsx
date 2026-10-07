@@ -9,10 +9,19 @@ interface AnswerFieldProps {
   onValueChange: (value: string) => void;
   onKeyDown: KeyboardEventHandler<HTMLInputElement>;
   /** Latest answer result; pulses the field green or red (with a small shake on a miss). */
-  feedback: Feedback | null;
+  feedback?: Feedback | null;
   /** Warm Up countdown digit, shown centred in the field in place of the caret. */
   countdown?: number | null;
+  /** lg: the simulator's answer field. md: the same typing animation at form size, fixed height (h-14). */
+  size?: 'lg' | 'md';
+  label?: string;
+  placeholder?: string;
 }
+
+const SIZES = {
+  lg: { font: 'text-6xl font-bold', wrapper: undefined, input: 'px-6 py-5' },
+  md: { font: 'text-2xl font-semibold', wrapper: 'h-14', input: 'h-full px-6' },
+} as const;
 
 const ringStyle = (color: string): CSSProperties => ({
   boxShadow: `0 0 0 2px ${color}, 0 0 44px -6px ${color}`,
@@ -25,7 +34,10 @@ const ringStyle = (color: string): CSSProperties => ({
  * caret that springs to the end of the text.
  */
 export const AnswerField = forwardRef<HTMLInputElement, AnswerFieldProps>(
-  ({ value, onValueChange, onKeyDown, feedback, countdown = null }, ref) => {
+  (
+    { value, onValueChange, onKeyDown, feedback = null, countdown = null, size = 'lg', label = 'Type the answer for the prompt', placeholder },
+    ref
+  ) => {
     const [scope, animate] = useAnimate<HTMLDivElement>();
     const reduceMotion = useReducedMotion();
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -53,7 +65,7 @@ export const AnswerField = forwardRef<HTMLInputElement, AnswerFieldProps>(
 
     return (
       // Font lives on the wrapper so the input and the display layer share metrics.
-      <div ref={scope} className="w-full text-6xl font-bold font-mono">
+      <div ref={scope} className={`w-full font-mono ${SIZES[size].font}`}>
         <GlassInput
           ref={(node) => {
             inputRef.current = node;
@@ -64,8 +76,10 @@ export const AnswerField = forwardRef<HTMLInputElement, AnswerFieldProps>(
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
           onKeyDown={onKeyDown}
-          className="px-6 py-5 text-transparent caret-transparent"
-          aria-label="Type the answer for the prompt"
+          wrapperClassName={SIZES[size].wrapper}
+          placeholder={placeholder}
+          className={`${SIZES[size].input} text-transparent caret-transparent`}
+          aria-label={label}
           autoComplete="off"
           spellCheck={false}
         >

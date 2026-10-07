@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Check, Copy, Eraser, Sparkles } from 'lucide-react';
 import { GlassButton, GlassPanel, IconButton } from '@/components/glass';
 import { Toast } from '@/components/Toast';
+import { TitlePrompt } from '@/components/TitlePrompt';
 import { MAX_LINE, formatSong } from '@/songs/formatSong';
 import { blurText, rowReveal, springs, staggerContainer, staggerItem } from '@/lib/motion';
 
@@ -93,7 +94,16 @@ const SongFormatter = () => {
   const [raw, setRaw] = useState('');
   // Formatting is cheap, but deferring keeps typing in a large paste responsive.
   const deferredRaw = useDeferredValue(raw);
-  const result = useMemo(() => formatSong(deferredRaw), [deferredRaw]);
+  // Answer to "No Title Detected!": a typed title, or null for Skip. Undefined
+  // until answered; a new paste, Clear or Example asks again.
+  const [titleChoice, setTitleChoice] = useState<string | null | undefined>(undefined);
+  const result = useMemo(() => formatSong(deferredRaw, { title: titleChoice }), [deferredRaw, titleChoice]);
+  const askTitle = result.missingTitle && titleChoice === undefined;
+  const firstLine = useMemo(() => deferredRaw.split('\n').find((l) => l.trim())?.trim() ?? '', [deferredRaw]);
+  const replaceRaw = (text: string) => {
+    setTitleChoice(undefined);
+    setRaw(text);
+  };
   const [copied, setCopied] = useState(false);
   // Shown on every copy; a new id restarts it.
   const [toastId, setToastId] = useState<number | null>(null);
@@ -117,6 +127,7 @@ const SongFormatter = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-20 sm:p-6">
+      <TitlePrompt open={askTitle} firstLine={firstLine} onSubmit={setTitleChoice} onSkip={() => setTitleChoice(null)} />
       <Toast id={toastId} message="Remember to remove the period (.) under [Blank]" duration={5000} onClose={closeToast} />
       <IconButton onClick={() => navigate('/')} className="fixed top-4 left-4 z-10" aria-label="Back to Screen Team App">
         <ArrowLeft className="w-5 h-5" />
@@ -134,10 +145,10 @@ const SongFormatter = () => {
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs uppercase tracking-wider text-muted-foreground">Raw text</h2>
               <div className="flex gap-2">
-                <GlassButton size="sm" onClick={() => setRaw(EXAMPLE)}>
+                <GlassButton size="sm" onClick={() => replaceRaw(EXAMPLE)}>
                   <Sparkles className="h-4 w-4" /> Example
                 </GlassButton>
-                <GlassButton size="sm" onClick={() => setRaw('')} disabled={!raw}>
+                <GlassButton size="sm" onClick={() => replaceRaw('')} disabled={!raw}>
                   <Eraser className="h-4 w-4" /> Clear
                 </GlassButton>
               </div>
@@ -145,6 +156,8 @@ const SongFormatter = () => {
             <textarea
               value={raw}
               onChange={(e) => setRaw(e.target.value)}
+              // A paste is a new song: ask about a missing title again.
+              onPaste={() => setTitleChoice(undefined)}
               placeholder={'Paste the song here, title on the first line.\n\nVerse 1\n…'}
               spellCheck={false}
               aria-label="Raw song text"
@@ -154,7 +167,9 @@ const SongFormatter = () => {
 
           <MotionPanel variants={staggerItem} className="flex flex-col gap-3 p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-xs uppercase tracking-wider text-muted-foreground">Formatted</h2>
+              <h2 className="min-w-0 text-xs leading-snug text-muted-foreground">
+                Formatted: (Always double-check the songs. Never blindly trust this copy-paste)
+              </h2>
               <GlassButton size="sm" variant="accent" onClick={copy} disabled={!result.text} aria-live="polite">
                 <span className="relative grid place-items-center">
                   <AnimatePresence initial={false}>
@@ -170,7 +185,11 @@ const SongFormatter = () => {
               aria-label="Formatted song"
               className="glass-flat h-[40vh] md:h-[56vh] overflow-auto rounded-2xl p-4 font-mono text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap"
             >
-              {result.text ? <Output text={result.text} /> : <span className="text-foreground/30">The formatted song appears here.</span>}
+              {result.text ? (
+                <Output text={result.text} />
+              ) : (
+                <span className="text-foreground/30">{askTitle ? 'Waiting for a title…' : 'The formatted song appears here.'}</span>
+              )}
             </pre>
             <p className="text-xs text-muted-foreground tabular-nums">
               {result.text ? (
