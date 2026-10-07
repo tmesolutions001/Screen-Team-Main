@@ -129,14 +129,29 @@ Every removal or judgement call adds a note to `warnings`, which the page shows 
   (ending in a letter) belongs to the first book that has it. The Gospels are matched as
   `S. Mateo`, `S. Marcos`, `S. Lucas`, `S. Juan`, so `s. mat` scores and `mat` doesn't.
   `bookValidationEs.ts` is generated from that rule; edit an entry by hand if ProPresenter differs.
-
-- Scoring (`validateInput`) and miss diagnosis (`diagnose`) both read `bookVariations`; keep them
-  in agreement.
+- Scoring (`validateInput`) and miss diagnosis (`diagnose`) both read the round's abbreviation
+  table (`BookSet.variations` in `game/books.ts`); keep them in agreement. Diagnosis wording lives in
+  `MESSAGES` (English and Spanish); logic compares `Issue.code`, never the translated label.
 - Speech is *owned* (`lib/speech.ts`): `stop(owner)` only silences that owner's speech, and
   `speak` is deferred and retried to work around Chrome dropping utterances. Don't call
   `speechSynthesis` directly.
 - Rounds and results are keyed per navigation in `App.tsx`, so re-entering a round mounts a fresh
   one.
+
+## Product decisions (confirmed by the owner)
+
+- **Sounds are always on.** There is no settings gear and no way to mute; don't add one back.
+- **Only the simulator is translated.** Home and the Song Formatter stay in English.
+- **Spanish book names** are exactly those in `public/BookInfoEs.xml`, unaccented. ProPresenter
+  ignores accents in book input, so typed accents are ignored too.
+- **The Gospels need `S.`** in ProPresenter: `S. Mat` is right, `Mat` is wrong. Spoken, they are
+  just "Mateo", "Marcos", "Lucas", "Juan" (no "San").
+- **Numbered books are spoken** "Primera / Segunda / Tercera de …" in Spanish ("Primera de Reyes"),
+  "first / second / third …" in English.
+- **Warm Up** is Chapter–Verse, Book, then Classic, 30 seconds each.
+- **Song Formatter output** is all capitals and opens with `[Blank]` holding a single `.`.
+- `@radix-ui/react-dialog` is no longer used (the settings sheet was removed). It is still in
+  `package.json` because uninstalling it rewrites the whole lockfile with a newer npm.
 
 ## Testing rules
 
