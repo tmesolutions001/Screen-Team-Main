@@ -3,8 +3,14 @@
  *
  *   Title: <Clean Name>
  *
+ *   [Blank]
+ *   .
+ *
  *   [Group]
  *   line (max 25 chars)
+ *   line
+ *
+ *   line
  *   line
  *
  * Pre-processing: alignment dots become spaces, and chord-only lines are removed.
@@ -13,7 +19,8 @@
  * (English, Spanish, abbreviations, typos, multipliers) map to a fixed set of
  * master groups; body lines wrap at word boundaries to 25 characters and are
  * split into chunks of 2–3 lines (keeping each lyric line's wrapped pieces
- * together where possible), each under its own copy of the group label.
+ * together where possible). Each group's tag is written once, with chunks
+ * separated by a blank line; the song opens with a [Blank] group holding ".".
  */
 
 export const MAX_LINE = 25;
@@ -300,6 +307,12 @@ export function chunkPhrases(phrases: string[][]): string[][] {
   return out;
 }
 
+/**
+ * Every song opens on a blank slide. ProPresenter drops an empty group, so it
+ * carries a single period, which the operator removes after importing.
+ */
+export const OPENING_BLANK = '[Blank]\n.';
+
 export interface FormatResult {
   text: string;
   title: string;
@@ -325,7 +338,9 @@ export function formatSong(raw: string): FormatResult {
     const line = raw.trim();
     const match = matchGroup(line);
     if (match && 'group' in match) {
-      sections.push({ group: match.group, body: [] });
+      // The same group labelled again straight away ("Chorus" ... "Chorus x2")
+      // continues it: one tag per group, not per stanza.
+      if (sections[sections.length - 1]?.group !== match.group) sections.push({ group: match.group, body: [] });
       continue;
     }
     const current = sections[sections.length - 1];
@@ -352,7 +367,11 @@ export function formatSong(raw: string): FormatResult {
     warnings.push(`Removed ${purged} line${purged === 1 ? '' : 's'} of metadata between the title and the first group.`);
   }
 
-  const blocks: string[] = [];
+  // The song opens on the inserted [Blank]; an empty Blank/Instrumental label
+  // at the very start would only duplicate it.
+  if (sections[0]?.group === 'Blank' && !sections[0].body.length) sections.shift();
+
+  const blocks: string[] = [OPENING_BLANK];
   for (const { group, body } of sections) {
     const phrases: string[][] = [];
     for (const line of body) {
@@ -362,8 +381,8 @@ export function formatSong(raw: string): FormatResult {
     }
     const chunks = chunkPhrases(phrases);
     if (chunks.some((c) => c.length === 1)) warnings.push(`[${group}] has a slide with only one line.`);
-    if (!chunks.length) blocks.push(`[${group}]`);
-    for (const chunk of chunks) blocks.push([`[${group}]`, ...chunk].join('\n'));
+    // Tag once; chunks after the first are separated by a blank line only.
+    blocks.push([`[${group}]`, chunks.map((c) => c.join('\n')).join('\n\n')].filter(Boolean).join('\n'));
   }
 
   const text = [`Title: ${title}`, ...blocks].join('\n\n');

@@ -16,7 +16,9 @@ Tools for ProPresenter operators.
   dropped. Labels in English or Spanish, abbreviated, misspelled or with multipliers (`Coro x2`,
   `V1`, `Puente ×4`, `Chrous`) map to fixed groups (`[Verse 1]`, `[Chorus]`, `[PreChorus]`, …).
   Lines wrap at word boundaries to 25 characters (words are never split), and each group is split into 2–3-line slides,
-  keeping a wrapped lyric line on one slide where possible.
+  keeping a wrapped lyric line on one slide where possible. Each group's tag is written once, with
+  slides separated by a blank line. The song opens with `[Blank]` holding a single `.` so ProPresenter
+  keeps the group; copying shows a reminder to remove that period.
 
 ## Development
 

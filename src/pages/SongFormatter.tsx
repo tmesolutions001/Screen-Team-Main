@@ -1,8 +1,9 @@
-import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Check, Copy, Eraser, Sparkles } from 'lucide-react';
 import { GlassButton, GlassPanel, IconButton } from '@/components/glass';
+import { Toast } from '@/components/Toast';
 import { MAX_LINE, formatSong } from '@/songs/formatSong';
 import { blurText, rowReveal, springs, staggerContainer, staggerItem } from '@/lib/motion';
 
@@ -42,22 +43,28 @@ const MotionPanel = motion.create(GlassPanel);
  * Formatted output with group labels and the title picked out. Lines stay real
  * text joined by newlines, so selecting and copying by hand gives the exact output.
  */
-const Output = ({ text }: { text: string }) => (
-  <>
-    {text.split('\n').map((line, i) => (
-      <Fragment key={i}>
-        {i > 0 && '\n'}
-        {line.startsWith('[') ? (
-          <span className="font-semibold text-[var(--accent-2)]">{line}</span>
-        ) : line.startsWith('Title: ') ? (
-          <span className="font-semibold text-foreground">{line}</span>
-        ) : (
-          line
-        )}
-      </Fragment>
-    ))}
-  </>
-);
+const Output = ({ text }: { text: string }) => {
+  const lines = text.split('\n');
+  return (
+    <>
+      {lines.map((line, i) => (
+        <Fragment key={i}>
+          {i > 0 && '\n'}
+          {line === '.' && i > 0 && lines[i - 1] === '[Blank]' ? (
+            // The placeholder period the operator removes after importing.
+            <span className="font-semibold text-[var(--accent-warm-2)]">{line}</span>
+          ) : line.startsWith('[') ? (
+            <span className="font-semibold text-[var(--accent-2)]">{line}</span>
+          ) : line.startsWith('Title: ') ? (
+            <span className="font-semibold text-foreground">{line}</span>
+          ) : (
+            line
+          )}
+        </Fragment>
+      ))}
+    </>
+  );
+};
 
 /** Clipboard API where allowed; falls back to a hidden textarea (embedded frames often block the API). */
 const copyText = async (text: string) => {
@@ -85,6 +92,9 @@ const SongFormatter = () => {
   const deferredRaw = useDeferredValue(raw);
   const result = useMemo(() => formatSong(deferredRaw), [deferredRaw]);
   const [copied, setCopied] = useState(false);
+  // Shown on every copy; a new id restarts it.
+  const [toastId, setToastId] = useState<number | null>(null);
+  const closeToast = useCallback(() => setToastId(null), []);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => () => clearTimeout(copiedTimer.current), []);
@@ -97,12 +107,14 @@ const SongFormatter = () => {
   const copy = async () => {
     if (!result.text || !(await copyText(result.text))) return;
     setCopied(true);
+    setToastId(Date.now());
     clearTimeout(copiedTimer.current);
     copiedTimer.current = setTimeout(() => setCopied(false), 1600);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-20 sm:p-6">
+      <Toast id={toastId} message="Remember to remove the period under [Blank]" onClose={closeToast} />
       <IconButton onClick={() => navigate('/')} className="fixed top-4 left-4 z-10" aria-label="Back to Screen Team App">
         <ArrowLeft className="w-5 h-5" />
       </IconButton>
