@@ -32,8 +32,19 @@ const cancelIfBusy = (s: SpeechSynthesis) => {
  * Undefined leaves the choice to the browser (it uses `utterance.lang`).
  */
 const VOICE_PREFERENCE: Record<string, string[]> = { es: ['es-MX', 'es-US', 'es-419', 'es-ES'] };
+// Chrome loads voices asynchronously: getVoices() can be empty for the first
+// prompt. Keep a copy that refreshes when the list arrives or changes.
+let voiceList: SpeechSynthesisVoice[] = [];
+const refreshVoices = () => {
+  const s = synth();
+  if (s) voiceList = s.getVoices();
+};
+synth()?.addEventListener?.('voiceschanged', refreshVoices);
+refreshVoices();
+
 const pickVoice = (s: SpeechSynthesis, lang: string): SpeechSynthesisVoice | undefined => {
-  const voices = s.getVoices();
+  if (!voiceList.length) refreshVoices();
+  const voices = voiceList.length ? voiceList : s.getVoices();
   const base = lang.split('-')[0];
   const wanted = [lang, ...(VOICE_PREFERENCE[base] ?? [])].map((l) => l.toLowerCase());
   for (const l of wanted) {
@@ -42,9 +53,6 @@ const pickVoice = (s: SpeechSynthesis, lang: string): SpeechSynthesisVoice | und
   }
   return voices.find((voice) => voice.lang.toLowerCase().startsWith(base));
 };
-
-// Voices load asynchronously in Chrome; asking once early means they are ready by the first prompt.
-synth()?.getVoices();
 
 const fire = (gen: number, text: string, rate: number, retry: boolean, lang?: string) => {
   const s = synth();

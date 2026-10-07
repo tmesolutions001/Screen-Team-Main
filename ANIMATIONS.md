@@ -77,8 +77,8 @@ When something can be toggled quickly, keep it mounted and animate between two n
 - **Issue popover** (`IssueButton`): one element that animates between `open` and `closed`
   variants. Clicking again mid-open reverses the same springs from where they are. After it
   finishes closing it is hidden (`visibility: hidden`, `aria-hidden`), not removed.
-- **Glass switch** (`GlassSwitch`): the thumb is a `layout` spring, so rapid toggling just
-  retargets it.
+- **Language pill** (`LanguageToggle`): its label cross-fades between "English" and "Español"
+  in place, so rapid switching reverses the swap instead of restarting it.
 - **Edit/Save** (`SongFormatter`): the label and icon swap through `AnimatePresence` with
   `blurText`, so a second click mid-swap reverses it smoothly.
 

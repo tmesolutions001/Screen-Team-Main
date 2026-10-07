@@ -4,8 +4,6 @@
  * the next spoken prompt.
  */
 
-import { getSettings } from './settings';
-
 let ctx: AudioContext | null = null;
 
 const getContext = (): AudioContext | null => {
@@ -76,14 +74,12 @@ export const playWrong = () => {
 };
 
 export const playResult = (correct: boolean) => {
-  if (!getSettings().sfx) return;
   if (correct) playCorrect();
   else playWrong();
 };
 
 /** Countdown beat: a low, round thump with a soft click on top for definition. */
 export const playThump = () => {
-  if (!getSettings().sfx) return;
   const ac = getContext();
   if (!ac) return;
   playTone(ac, { type: 'sine', freq: 130, endFreq: 48, duration: 0.28, gain: 0.5 });
@@ -95,7 +91,6 @@ export const playThump = () => {
  * lower and longer than the correct-answer chime so the two never read alike.
  */
 export const playSegmentSwitch = () => {
-  if (!getSettings().sfx) return;
   const ac = getContext();
   if (!ac) return;
   [523.25, 659.25, 783.99].forEach((freq, i) =>

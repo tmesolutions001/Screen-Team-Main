@@ -3,7 +3,7 @@ import type { Lang } from './books';
 import type { GameMode } from './engine';
 
 /**
- * Every piece of simulator text (menu, settings, rounds, results), in English
+ * Every piece of simulator text (menu, rounds, results), in English
  * and Spanish. Only the simulator follows the language setting; the app home
  * and the Song Formatter stay in English.
  */
@@ -18,7 +18,6 @@ export interface SimText {
     start: (mode: string) => string;
     descriptions: Record<GameMode, string>;
   };
-  settings: { open: string; title: string; description: string; sfx: string; sfxDetail: string };
   round: {
     mode: string;
     timeLeft: string;
@@ -71,13 +70,6 @@ export const SIM_TEXT: Record<Lang, SimText> = {
         warmup: 'Chapter–Verse, Book, then Classic, with a countdown before each.',
       },
     },
-    settings: {
-      open: 'Open settings',
-      title: 'Settings',
-      description: 'Saved on this computer.',
-      sfx: 'Sound effects',
-      sfxDetail: 'Chime for a correct answer, buzz for a miss.',
-    },
     round: {
       mode: 'Mode',
       timeLeft: 'Time left',
@@ -127,13 +119,6 @@ export const SIM_TEXT: Record<Lang, SimText> = {
         book: 'Solo nombres de libros.',
         warmup: 'Capítulo–Versículo, Libro y luego Clásico, con una cuenta regresiva antes de cada uno.',
       },
-    },
-    settings: {
-      open: 'Abrir ajustes',
-      title: 'Ajustes',
-      description: 'Se guardan en esta computadora.',
-      sfx: 'Efectos de sonido',
-      sfxDetail: 'Una campanita al acertar y un zumbido al fallar.',
     },
     round: {
       mode: 'Modo',

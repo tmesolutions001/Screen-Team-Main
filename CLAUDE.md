@@ -49,13 +49,13 @@ npx tsc -p tsconfig.app.json --noEmit   # typecheck (the build does not typechec
   - `EditableOutput`: the editable formatted song
   - `GrainWaves`: the sparkle-grain wave (Edit/Save and the language pill)
   - `LanguageToggle`, `SwapText` (text that blurs between languages)
-  - `TitlePrompt`, `Toast`, `IssueButton`, `GameHeader`, `CountUp`, `Background`, `Settings`
+  - `TitlePrompt`, `Toast`, `IssueButton`, `GameHeader`, `CountUp`, `Background`
 - `src/components/glass`: frosted-glass components; design tokens live in `src/index.css`
 - `src/lib`:
   - `motion.ts`: shared springs and variants
-  - `sfx.ts`: synthesized sounds
+  - `sfx.ts`: synthesized sounds (always on; there is no sound setting)
   - `speech.ts`: speech synthesis with ownership
-  - `settings.ts`: persisted settings
+  - `settings.ts`: persisted settings (the simulator language)
 - `public/BookInfo.xml` / `public/BookInfoEs.xml`: books, chapters and verse counts (English / Spanish)
 
 ## Conventions
@@ -123,7 +123,9 @@ Every removal or judgement call adds a note to `warnings`, which the page shows 
 - Language: `settings.simLang` (`'en' | 'es'`), switched by the pill on the simulator menu. A
   round reads it once at the start, and the results page uses the round's language (`EndState.lang`).
   Only the simulator is translated: never use `useSimText` on the home page or the Song Formatter.
-- Spanish abbreviations follow one rule: walking the books in Bible order, every prefix of a name
+- Spanish speech writes chapter and verse numbers out as Spanish words (`spanishNumber`), so they
+  are spoken in Spanish even when the computer has no Spanish voice. English speaks digits.
+- Abbreviations in both languages follow one rule: walking the books in Bible order, every prefix of a name
   (ending in a letter) belongs to the first book that has it. The Gospels are matched as
   `S. Mateo`, `S. Marcos`, `S. Lucas`, `S. Juan`, so `s. mat` scores and `mat` doesn't.
   `bookValidationEs.ts` is generated from that rule; edit an entry by hand if ProPresenter differs.

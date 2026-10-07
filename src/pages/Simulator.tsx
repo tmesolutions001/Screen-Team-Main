@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowLeft, BookOpen, Flame, Hash, ScrollText } from 'lucide-react';
-import { Settings } from '@/components/Settings';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { SwapText } from '@/components/SwapText';
 import { GlassTile, IconButton } from '@/components/glass';
@@ -27,9 +26,7 @@ const Simulator = () => {
       <IconButton onClick={() => navigate('/')} className="fixed top-4 left-4" aria-label={t.menu.back}>
         <ArrowLeft className="w-5 h-5" />
       </IconButton>
-      {/* Left of the settings button (44px wide at right-4, plus an 8px gap). */}
-      <LanguageToggle className="fixed top-4 right-[4.25rem]" />
-      <Settings />
+      <LanguageToggle className="fixed top-4 right-4" />
 
       <motion.div variants={staggerContainer} className="w-full max-w-2xl space-y-10">
         <motion.header variants={staggerItem} className="text-center space-y-3">
