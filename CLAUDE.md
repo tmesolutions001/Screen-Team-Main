@@ -1,0 +1,133 @@
+# CLAUDE.md
+
+Guidance for Claude (and anyone else) working in this repository.
+
+## What this is
+
+**Screen Team App**: tools for ProPresenter operators. A React 18 + Vite + TypeScript single-page app
+styled with Tailwind and animated with Motion (`motion/react`). There is no backend.
+
+- **Simulator** (`/simulator`, `/game/:mode`, `/end`): a scripture-reference typing trainer. A
+  reference is spoken and the operator types it. Modes are Classic, Chapter–Verse, Book and Warm Up
+  (Chapter–Verse, Book, then Classic, 30 seconds each, each preceded by a title and a 3-2-1
+  countdown). The results page explains every miss with an Issue pill and popover.
+- **Song Formatter** (`/songs`): paste raw lyrics, get slide-ready text for ProPresenter, edit it
+  by hand if needed, and copy it.
+
+## Commands
+
+```sh
+npm install
+npm run dev        # http://localhost:8080
+npm run build      # production build to dist/
+npm run lint       # ESLint
+npx tsc -p tsconfig.app.json --noEmit   # typecheck (the build does not typecheck)
+```
+
+- `vite.config.ts` binds the dev server to `::` (IPv6). In containers without IPv6 it fails with
+  `EAFNOSUPPORT`; run `npx vite --host 0.0.0.0` instead.
+- There is no test framework. Verify logic by bundling a small script with esbuild
+  (`npx esbuild script.ts --bundle --platform=node --alias:@=./src | node`) and verify UI by
+  driving the dev server with Playwright (Chromium is preinstalled in the cloud environment).
+
+## Layout
+
+- `src/pages`: `Home`, `SongFormatter`, `Simulator` (mode menu), `Game` (a round), `End` (results)
+- `src/game`:
+  - `engine.ts` (`BibleGame`: prompts, scoring, misses)
+  - `useGame.ts` (round state, clock, Warm Up schedule driver)
+  - `warmup.ts` (Warm Up segments and schedule)
+  - `diagnose.ts` (why a miss was wrong)
+- `src/songs/formatSong.ts`: the whole Song Formatter, as pure functions
+- `src/utils/bookValidation.ts`: the book-abbreviation table that scoring and diagnosis share
+- `src/components`:
+  - `AnswerField`: blur-in typing field, used for answers and the title prompt
+  - `EditableOutput`: the editable formatted song
+  - `TitlePrompt`, `Toast`, `IssueButton`, `GameHeader`, `CountUp`, `Background`, `Settings`
+- `src/components/glass`: frosted-glass components; design tokens live in `src/index.css`
+- `src/lib`:
+  - `motion.ts`: shared springs and variants
+  - `sfx.ts`: synthesized sounds
+  - `speech.ts`: speech synthesis with ownership
+  - `settings.ts`: persisted settings
+- `public/BookInfo.xml`: books, chapters and verse counts
+
+## Conventions
+
+### Motion (read `ANIMATIONS.md`)
+
+Animations must be clean, interruptible and fully reversible: changing state mid-animation
+continues smoothly from where things are, never waiting, snapping or queueing.
+
+- Use the presets in `src/lib/motion.ts` (`springs.snappy|smooth|gentle`, `blurText`, `rowReveal`,
+  `swapProps`, `pageVariants`, stagger variants). Don't inline new spring numbers.
+- Springs for state; short tweens only for blur and opacity (which must not overshoot) and for
+  things that are about time.
+- Something that can be toggled quickly animates between states on one element; it is not
+  unmounted mid-flight. Events that repeat either layer (each gets its own short-lived element) or
+  replace the running animation.
+- The source of truth is never the animation: use a ref, a timeout or a schedule.
+- Respect reduced motion; `MotionConfig reducedMotion="user"` is set in `App.tsx`.
+
+### Glass
+
+- Only `.glass` applies `backdrop-filter`. Glass inside glass uses `flat` or `glass-flat`.
+- Never put `filter` or a lasting `opacity < 1` on an ancestor of glass: it becomes a backdrop root
+  and breaks the frosted effect. That's why page transitions animate only opacity, scale and y.
+- Overlays that sit on text (popovers, the title prompt) use a darker inline background so they
+  stay legible.
+
+### Code style
+
+- Match the surrounding code: short doc comments that explain *why*, TypeScript throughout, and the
+  `@/` alias for `src/`.
+- Keep logic pure and testable (`formatSong.ts`, `diagnose.ts`, `warmup.ts`), separate from the UI.
+- Commit messages explain what changed and why, in a short summary followed by detail bullets.
+
+## Song Formatter pipeline
+
+`formatSong(raw, { title })` in `src/songs/formatSong.ts`. Order matters:
+
+1. **Per line, pre-processing:** strip vowel accents (á→a; keep ñ, Ñ, ü, Ü), then alignment dots
+   become spaces, then repeat markers are removed (`x2`, `(x4)`, `×4`), then chord-only lines are
+   dropped (chords, `|` bar lines, `/`, `%`, `N.C.`).
+2. **Title:** the first line, with trailing `[…]` metadata stripped. If the first line is a group
+   label, the title is missing: the result has `missingTitle` and nothing is formatted until the
+   caller passes `title` (a string, or `null` to skip, which omits the Title line).
+3. **Sections:**
+   - Roadmap lines are dropped first, including roadmaps that wrap over several lines.
+   - Then group labels start sections, mapped through the English/Spanish dictionary
+     (`GROUP_DICTIONARY`, `matchGroup`).
+   - Metadata lines are dropped wherever they appear (`isMetadataLine`: brackets, bpm, 4/4,
+     `Key:`, credits).
+   - Lyrics before any label start `[Verse 1]`. Blank lines are stanza breaks.
+4. **Pruning:** groups with no lyrics are removed, and same-group neighbours merge.
+5. **Per section:**
+   - Lines wrap to 25 characters, balanced (`wrapLine`), never splitting words.
+   - Each stanza is chunked on its own into 2–3-line slides (`chunkPhrases`). Exactly 4 lines is
+     always 2 + 2. One-line stanzas join a neighbour.
+   - The tag is written once, with a blank line between chunks.
+6. **Output:** `Title: …`, then the opening `[Blank]` with a single `.` (ProPresenter drops empty
+   groups; the operator removes it), then the sections, all in capitals as the very last step.
+
+Every removal or judgement call adds a note to `warnings`, which the page shows under the output.
+
+## Simulator notes
+
+- Scoring (`validateInput`) and miss diagnosis (`diagnose`) both read `bookVariations`; keep them
+  in agreement.
+- Speech is *owned* (`lib/speech.ts`): `stop(owner)` only silences that owner's speech, and
+  `speak` is deferred and retried to work around Chrome dropping utterances. Don't call
+  `speechSynthesis` directly.
+- Rounds and results are keyed per navigation in `App.tsx`, so re-entering a round mounts a fresh
+  one.
+
+## Testing rules
+
+- **Song Formatter tests and examples use Lorem Ipsum only, never real song lyrics.** This includes
+  the page's built-in Example text.
+- Before committing, run the typecheck and lint, and exercise the change in the real app (dev
+  server and Playwright). Spam-click anything with state to confirm it stays in sync.
+- Headless Chromium in the cloud container renders at about 6 fps, because it draws the glass blur
+  in software. Animation timings measured there run slow; check state and DOM, not exact frame
+  timing.

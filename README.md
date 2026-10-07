@@ -33,6 +33,12 @@ Tools for ProPresenter operators.
   by hand: Edit unlocks it (new keystrokes blur in like a round's answer) and Save locks it; Copy
   always takes what is in the box, edits included.
 
+## Docs
+
+- [`CLAUDE.md`](CLAUDE.md): commands, layout, conventions, the Song Formatter pipeline and testing rules.
+- [`ANIMATIONS.md`](ANIMATIONS.md): how motion works here (philosophy, style, and the techniques that
+  keep every animation interruptible, reversible and smooth).
+
 ## Development
 
 ```sh
