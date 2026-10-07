@@ -1,10 +1,11 @@
-import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Check, Copy, Eraser, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Eraser, PencilLine, Save, Sparkles } from 'lucide-react';
 import { GlassButton, GlassPanel, IconButton } from '@/components/glass';
 import { Toast } from '@/components/Toast';
 import { TitlePrompt } from '@/components/TitlePrompt';
+import { EditableOutput, type EditableOutputHandle } from '@/components/EditableOutput';
 import { MAX_LINE, formatSong } from '@/songs/formatSong';
 import { blurText, rowReveal, springs, staggerContainer, staggerItem } from '@/lib/motion';
 
@@ -43,33 +44,6 @@ Tag
 
 const MotionPanel = motion.create(GlassPanel);
 
-/**
- * Formatted output with group labels and the title picked out. Lines stay real
- * text joined by newlines, so selecting and copying by hand gives the exact output.
- */
-const Output = ({ text }: { text: string }) => {
-  const lines = text.split('\n');
-  return (
-    <>
-      {lines.map((line, i) => (
-        <Fragment key={i}>
-          {i > 0 && '\n'}
-          {line === '.' && i > 0 && lines[i - 1]?.toUpperCase() === '[BLANK]' ? (
-            // The placeholder period the operator removes after importing.
-            <span className="font-semibold text-[var(--accent-warm-2)]">{line}</span>
-          ) : line.startsWith('[') ? (
-            <span className="font-semibold text-[var(--accent-2)]">{line}</span>
-          ) : /^title: /i.test(line) ? (
-            <span className="font-semibold text-foreground">{line}</span>
-          ) : (
-            line
-          )}
-        </Fragment>
-      ))}
-    </>
-  );
-};
-
 /** Clipboard API where allowed; falls back to a hidden textarea (embedded frames often block the API). */
 const copyText = async (text: string) => {
   try {
@@ -104,6 +78,31 @@ const SongFormatter = () => {
     setTitleChoice(undefined);
     setRaw(text);
   };
+  // Hand edits to the formatted text. Null means "show the formatter's output";
+  // any change to the formatter's output (the raw text changed) replaces them.
+  const [edited, setEdited] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  // Mirrors `editing` synchronously, so rapid clicks each flip from the true current state.
+  const editingRef = useRef(false);
+  const outputRef = useRef<EditableOutputHandle>(null);
+  const value = edited ?? result.text;
+
+  useEffect(() => {
+    setEdited(null);
+    if (!result.text) {
+      editingRef.current = false;
+      setEditing(false);
+    }
+  }, [result.text]);
+
+  const toggleEdit = (button: HTMLElement) => {
+    const next = !editingRef.current;
+    editingRef.current = next;
+    setEditing(next);
+    outputRef.current?.wave(next ? 'edit' : 'save', button);
+    if (next) outputRef.current?.focus();
+  };
+
   const [copied, setCopied] = useState(false);
   // Shown on every copy; a new id restarts it.
   const [toastId, setToastId] = useState<number | null>(null);
@@ -112,13 +111,15 @@ const SongFormatter = () => {
 
   useEffect(() => () => clearTimeout(copiedTimer.current), []);
 
-  const slides = result.text ? result.text.split('\n\n').length - 1 : 0;
-  const longest = result.text
-    ? Math.max(0, ...result.text.split('\n').filter((l) => l && !l.startsWith('[') && !/^title: /i.test(l)).map((l) => l.length))
+  const slides = value ? value.split('\n\n').length - 1 : 0;
+  const longest = value
+    ? Math.max(0, ...value.split('\n').filter((l) => l && !l.startsWith('[') && !/^title: /i.test(l)).map((l) => l.length))
     : 0;
 
   const copy = async () => {
-    if (!result.text || !(await copyText(result.text))) return;
+    // Exactly what is in the box right now, hand edits included.
+    const text = outputRef.current?.textarea?.value ?? value;
+    if (!text || !(await copyText(text))) return;
     setCopied(true);
     setToastId(Date.now());
     clearTimeout(copiedTimer.current);
@@ -170,30 +171,48 @@ const SongFormatter = () => {
               <h2 className="min-w-0 text-xs leading-snug text-muted-foreground">
                 Formatted: (Always double-check the songs. Never blindly trust this copy-paste)
               </h2>
-              <GlassButton size="sm" variant="accent" onClick={copy} disabled={!result.text} aria-live="polite">
-                <span className="relative grid place-items-center">
-                  <AnimatePresence initial={false}>
-                    <motion.span key={copied ? 'done' : 'copy'} {...blurText} className="col-start-1 row-start-1">
-                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </motion.span>
-                  </AnimatePresence>
-                </span>
-                {copied ? 'Copied' : 'Copy'}
-              </GlassButton>
+              <div className="flex shrink-0 gap-2">
+                <GlassButton
+                  size="sm"
+                  onClick={(e) => toggleEdit(e.currentTarget)}
+                  disabled={!value && !editing}
+                  aria-pressed={editing}
+                  className={editing ? 'hover:shadow-[0_0_28px_-8px_var(--ok)]' : undefined}
+                >
+                  <span className="relative grid place-items-center">
+                    <AnimatePresence initial={false}>
+                      <motion.span key={editing ? 'save' : 'edit'} {...blurText} className="col-start-1 row-start-1">
+                        {editing ? <Save className="h-4 w-4 text-[var(--ok)]" /> : <PencilLine className="h-4 w-4" />}
+                      </motion.span>
+                    </AnimatePresence>
+                  </span>
+                  {editing ? 'Save' : 'Edit'}
+                </GlassButton>
+                <GlassButton size="sm" variant="accent" onClick={copy} disabled={!value} aria-live="polite">
+                  <span className="relative grid place-items-center">
+                    <AnimatePresence initial={false}>
+                      <motion.span key={copied ? 'done' : 'copy'} {...blurText} className="col-start-1 row-start-1">
+                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </motion.span>
+                    </AnimatePresence>
+                  </span>
+                  {copied ? 'Copied' : 'Copy'}
+                </GlassButton>
+              </div>
             </div>
-            <pre
-              aria-label="Formatted song"
-              className="glass-flat h-[40vh] md:h-[56vh] overflow-auto rounded-2xl p-4 font-mono text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap"
-            >
-              {result.text ? (
-                <Output text={result.text} />
-              ) : (
-                <span className="text-foreground/30">{askTitle ? 'Waiting for a title…' : 'The formatted song appears here.'}</span>
-              )}
-            </pre>
+            <EditableOutput
+              ref={outputRef}
+              value={value}
+              onChange={setEdited}
+              editing={editing}
+              label="Formatted song"
+              placeholder={askTitle ? 'Waiting for a title…' : 'The formatted song appears here.'}
+              className="h-[40vh] md:h-[56vh]"
+            />
             <p className="text-xs text-muted-foreground tabular-nums">
-              {result.text ? (
+              {value ? (
                 <>
+                  {editing ? 'Editing · ' : edited !== null ? 'Edited · ' : ''}
                   {slides} slide{slides === 1 ? '' : 's'} · longest line {longest}/{MAX_LINE}
                 </>
               ) : (

@@ -14,19 +14,21 @@ Tools for ProPresenter operators.
   (`....Lorem.ipsum.dolor`) become spaces, repeat markers (`x2`, `(x4)`, `×4`) are removed from
   labels and lyrics, and chord-only lines (`G C/G`, `Em C G`, `N.C.`) are removed, and accented
   vowels lose their accent (á → a; ñ and ü are kept). The first line becomes `Title: …` (trailing
-  `[…]` metadata removed). Obvious metadata lines are dropped wherever they appear (fully [bracketed]
-  or (parenthesised) lines, bpm, 4/4, `Key:`, credits); everything else is kept as lyrics. Lyrics
-  before any group label start under `[Verse 1]`, and untagged stanzas stay under the current group.
-  If the first line is itself a group label, the title is missing: a "No Title Detected!" popup asks
-  for one (Skip leaves the Title line out). Labels in English or Spanish (Verso, Coro, Puente,
-  Pre-Coro, Final/Salida, Etiqueta, Estribillo), abbreviated, misspelled or with multipliers (`Coro
-  x2`, `V1`, `Puente ×4`, `Chrous`) map to fixed groups (`[Verse 1]`, `[Chorus]`, `[PreChorus]`, …).
-  Lines wrap at word boundaries to 25 characters, balanced so no line is left with a stray word (a
-  28-character line becomes two of about 14; words are never split), and each group is split into
-  2–3-line slides, keeping a wrapped lyric line on one slide where possible. Each group's tag is
-  written once, with slides separated by a blank line; groups with no lyrics under them are dropped.
-  The song opens with `[Blank]` holding a single `.` so ProPresenter keeps the group; copying shows
-  a 5-second reminder to remove that period. The whole result is in capitals.
+  `[…]` metadata removed). Obvious metadata lines are dropped wherever they appear (fully
+  [bracketed] or (parenthesised) lines, bpm, 4/4, `Key:`, credits); everything else is kept as
+  lyrics. Lyrics before any group label start under `[Verse 1]`, and untagged stanzas stay under the
+  current group. If the first line is itself a group label, the title is missing: a "No Title
+  Detected!" popup asks for one (Skip leaves the Title line out). Labels in English or Spanish
+  (Verso, Coro, Puente, Pre-Coro, Final/Salida, Etiqueta, Estribillo), abbreviated, misspelled or
+  with multipliers (`Coro x2`, `V1`, `Puente ×4`, `Chrous`) map to fixed groups (`[Verse 1]`,
+  `[Chorus]`, `[PreChorus]`, …). Lines wrap at word boundaries to 25 characters, balanced so no line
+  is left with a stray word (a 28-character line becomes two of about 14; words are never split),
+  and each group is split into 2–3-line slides, keeping a wrapped lyric line on one slide where
+  possible. Each group's tag is written once, with slides separated by a blank line; groups with no
+  lyrics under them are dropped. The song opens with `[Blank]` holding a single `.` so ProPresenter
+  keeps the group; copying shows a 5-second reminder to remove that period. The whole result is in
+  capitals. The output can be edited by hand: Edit unlocks it (new keystrokes blur in like a round's
+  answer) and Save locks it; Copy always takes what is in the box, edits included.
 
 ## Development
 
@@ -42,6 +44,7 @@ Stack: React 18, Vite, TypeScript, Tailwind CSS, Motion. Book/chapter/verse data
 
 - `src/pages` — `Home` (app home), `SongFormatter`, `Simulator` (mode menu), `Game`, `End` (results)
 - `src/game` — `engine.ts` (prompts and scoring), `diagnose.ts` (why a miss was wrong), `warmup.ts` (Warm Up schedule), `useGame.ts` (round state, clock, feedback)
+- `src/components` — `AnswerField` (blur-in typing field), `EditableOutput` (Song Formatter output), `TitlePrompt`, `Toast`, `IssueButton`
 - `src/components/glass` — frosted-glass component set; design tokens are in `src/index.css`
 - `src/songs` — `formatSong.ts` (Song Formatter rules and group dictionary)
 - `src/lib` — `motion.ts` (shared springs/variants), `sfx.ts` (synthesized sounds), `settings.ts`
