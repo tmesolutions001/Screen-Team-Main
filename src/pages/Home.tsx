@@ -18,14 +18,12 @@ const Home = () => {
         </motion.header>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* Not wired up yet: the formatter arrives in a later phase. */}
           <GlassTile
             variants={staggerItem}
             icon={<FileMusic className="h-6 w-6" />}
             title="Song Formatter"
             description="Clean up and reformat song lyrics for slides."
-            badge="Coming soon"
-            inactive
+            onClick={() => navigate('/songs')}
           />
           <GlassTile
             variants={staggerItem}

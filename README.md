@@ -10,7 +10,12 @@ Tools for ProPresenter operators.
   The results table explains every miss: an **Issue** pill (e.g. *Opens earlier book*) opens a
   popup saying what the typing would actually have opened, what was missing, and the fastest
   correct answer. Colons count as a miss: typing a space is faster.
-- **Song Formatter** — planned; the home tile is a placeholder.
+- **Song Formatter** — paste raw lyrics, copy slide-ready text. The first line becomes
+  `Title: …` (trailing `[…]` metadata removed) and everything before the first group label is
+  dropped. Labels in English or Spanish, abbreviated, misspelled or with multipliers (`Coro x2`,
+  `V1`, `Puente ×4`, `Chrous`) map to fixed groups (`[Verse 1]`, `[Chorus]`, `[PreChorus]`, …).
+  Lines wrap at word boundaries to 25 characters, and each group is split into 2–3-line slides,
+  keeping a wrapped lyric line on one slide where possible.
 
 ## Development
 
@@ -24,7 +29,8 @@ Stack: React 18, Vite, TypeScript, Tailwind CSS, Motion. Book/chapter/verse data
 
 ## Layout
 
-- `src/pages` — `Home` (app home), `Simulator` (mode menu), `Game`, `End` (results)
+- `src/pages` — `Home` (app home), `SongFormatter`, `Simulator` (mode menu), `Game`, `End` (results)
 - `src/game` — `engine.ts` (prompts and scoring), `diagnose.ts` (why a miss was wrong), `warmup.ts` (Warm Up schedule), `useGame.ts` (round state, clock, feedback)
 - `src/components/glass` — frosted-glass component set; design tokens are in `src/index.css`
+- `src/songs` — `formatSong.ts` (Song Formatter rules and group dictionary)
 - `src/lib` — `motion.ts` (shared springs/variants), `sfx.ts` (synthesized sounds), `settings.ts`

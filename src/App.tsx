@@ -6,6 +6,7 @@ import Home from "./pages/Home";
 import Simulator from "./pages/Simulator";
 import Game from "./pages/Game";
 import End from "./pages/End";
+import SongFormatter from "./pages/SongFormatter";
 
 /**
  * Pages cross-fade rather than queue: popLayout lifts the outgoing page out of
@@ -36,6 +37,7 @@ const AnimatedRoutes = () => {
           <Routes location={location}>
             <Route path="/" element={<Home />} />
             <Route path="/simulator" element={<Simulator />} />
+            <Route path="/songs" element={<SongFormatter />} />
             <Route path="/game" element={<Game />} />
             <Route path="/game/:mode" element={<Game />} />
             <Route path="/end" element={<End />} />
