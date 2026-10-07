@@ -6,22 +6,26 @@ import { GlassButton, GlassPanel, IconButton } from '@/components/glass';
 import { MAX_LINE, formatSong } from '@/songs/formatSong';
 import { blurText, rowReveal, springs, staggerContainer, staggerItem } from '@/lib/motion';
 
-/** Placeholder text only: shows every rule (metadata, Spanish labels, multipliers, wrapping, chunking). */
-const EXAMPLE = `Lorem Ipsum Dolor [Lyrics, 139 bpm]
-Written by Consectetur Adipiscing
-Key: G  Tempo: 72
+/** Placeholder text only: shows every rule (alignment dots, chord lines, metadata, Spanish labels, multipliers, wrapping, chunking). */
+const EXAMPLE = `Lorem.Ipsum.Dolor [G, 70 bpm, 4/4]
+Written.by.Consectetur.Adipiscing
+Key:.G........Tempo:.70
 
-Verso 1
-Lorem ipsum dolor sit amet consectetur
-Adipiscing elit sed do eiusmod
-Tempor incididunt ut labore
-Et dolore magna aliqua
+Verse.I:
+G. C/G
+........Lorem.ipsum.dolor.sit.amet.consectetur
+G/B. Dsus
+Adipiscing.elit.sed.do.eiusmod
+Em. C. G
+Tempor.incididunt.ut.labore
+Et.dolore.magna.aliqua
 
 Pre-Coro
 Ut enim ad minim veniam
 Quis nostrud exercitation
 
 Coro (x2)
+C.......G/B.......Am7
 Ullamco laboris nisi ut aliquip ex ea commodo
 Duis aute irure dolor
 In reprehenderit in voluptate

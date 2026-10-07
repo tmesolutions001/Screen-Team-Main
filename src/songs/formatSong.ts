@@ -7,6 +7,7 @@
  *   line (max 25 chars)
  *   line
  *
+ * Pre-processing: alignment dots become spaces, and chord-only lines are removed.
  * Rules: the first line is the title (trailing [..] / (..) metadata removed);
  * everything before the first recognised group label is dropped; group labels
  * (English, Spanish, abbreviations, typos, multipliers) map to a fixed set of
@@ -177,6 +178,55 @@ function editDistance(a: string, b: string): number {
   return dp[b.length];
 }
 
+/**
+ * Pre-processing 1: alignment dots. Raw charts pad with periods instead of
+ * spaces ("........The.Lord.bless"); every period becomes a space, then runs of
+ * whitespace collapse and the line is trimmed.
+ */
+export function sanitizeDots(line: string): string {
+  return line.replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * One chord: root A-G, optional accidental (# or b), optional quality and
+ * extensions (m, min, maj, sus, dim, aug, add, with numbers: Dsus4, Cmaj7, G7,
+ * and alterations: F#m7b5, E7#9),
+ * optional bass note after a slash (C/G, G/B). Case-sensitive: roots are capitals.
+ */
+const CHORD = /^[A-G][#b]?(?:maj|min|m|sus|dim|aug|add|M|\+|°|ø)?\d*(?:(?:maj|sus|dim|aug|add|[#b])\d*)*(?:\/[A-G][#b]?)?$/;
+/** Bar lines and dashes that sit between chords on a chart. */
+const CHORD_SPACER = /^[|/\-–—]+$/;
+
+/**
+ * Pre-processing 2: a line made only of chords and spacing ("G C/G",
+ * "G/B Dsus", "Em C G") is a chord chart line, not lyrics. Run after
+ * sanitizeDots so "G. C/G" is already "G C/G".
+ */
+export function isChordLine(line: string): boolean {
+  const tokens = line.split(/\s+/).filter(Boolean).map((t) => t.replace(/^\((.*)\)$/, '$1'));
+  return tokens.some((t) => CHORD.test(t)) && tokens.every((t) => CHORD.test(t) || CHORD_SPACER.test(t));
+}
+
+export interface Preprocessed {
+  lines: string[];
+  chordLines: number;
+}
+
+/** Both pre-processing passes, in order, before any formatting. */
+export function preprocess(raw: string): Preprocessed {
+  let chordLines = 0;
+  const lines: string[] = [];
+  for (const rawLine of raw.replace(/\r\n?/g, '\n').split('\n')) {
+    const line = sanitizeDots(rawLine);
+    if (line && isChordLine(line)) {
+      chordLines++;
+      continue;
+    }
+    lines.push(line);
+  }
+  return { lines, chordLines };
+}
+
 /** Title: first line with trailing bracketed metadata ("[Lyrics, 139 bpm]") removed. */
 export function cleanTitle(line: string): string {
   let t = line.trim();
@@ -189,24 +239,16 @@ export function cleanTitle(line: string): string {
 }
 
 /**
- * Wrap one lyric line to `max` characters at word boundaries. A single word
- * longer than `max` is the only thing ever split mid-word.
+ * Wrap one lyric line to `max` characters at word boundaries. Words are never
+ * split: a single word longer than `max` gets a line of its own (and is reported).
  */
-export function wrapLine(line: string, max = MAX_LINE): { lines: string[]; splitWord: boolean } {
+export function wrapLine(line: string, max = MAX_LINE): { lines: string[]; longWord: string | null } {
   const words = line.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = '';
-  let splitWord = false;
-  for (let word of words) {
-    while (word.length > max) {
-      if (current) {
-        lines.push(current);
-        current = '';
-      }
-      lines.push(word.slice(0, max));
-      word = word.slice(max);
-      splitWord = true;
-    }
+  let longWord: string | null = null;
+  for (const word of words) {
+    if (word.length > max) longWord ??= word;
     if (!current) current = word;
     else if (current.length + 1 + word.length <= max) current += ` ${word}`;
     else {
@@ -215,7 +257,7 @@ export function wrapLine(line: string, max = MAX_LINE): { lines: string[]; split
     }
   }
   if (current) lines.push(current);
-  return { lines, splitWord };
+  return { lines, longWord };
 }
 
 /** Cost weights for chunking: fewest slides first, never a one-line slide if avoidable. */
@@ -267,8 +309,9 @@ export interface FormatResult {
 }
 
 export function formatSong(raw: string): FormatResult {
-  const lines = raw.replace(/\r\n?/g, '\n').split('\n');
+  const { lines, chordLines } = preprocess(raw);
   const warnings: string[] = [];
+  if (chordLines) warnings.push(`Removed ${chordLines} chord line${chordLines === 1 ? '' : 's'}.`);
 
   const titleIndex = lines.findIndex((l) => l.trim());
   if (titleIndex === -1) return { text: '', title: '', groups: [], warnings };
@@ -313,8 +356,8 @@ export function formatSong(raw: string): FormatResult {
   for (const { group, body } of sections) {
     const phrases: string[][] = [];
     for (const line of body) {
-      const { lines: w, splitWord } = wrapLine(line);
-      if (splitWord) warnings.push(`A word in "${line}" is longer than ${MAX_LINE} characters and had to be split.`);
+      const { lines: w, longWord } = wrapLine(line);
+      if (longWord) warnings.push(`"${longWord}" is longer than ${MAX_LINE} characters; it has a line of its own rather than being split.`);
       phrases.push(w);
     }
     const chunks = chunkPhrases(phrases);
