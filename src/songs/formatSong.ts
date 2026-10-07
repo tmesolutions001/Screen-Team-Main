@@ -22,7 +22,8 @@
  * so no line is left with a stray word, and are
  * split into chunks of 2–3 lines (keeping each lyric line's wrapped pieces
  * together where possible). Each group's tag is written once, with chunks
- * separated by a blank line; the song opens with a [Blank] group holding ".".
+ * separated by a blank line; groups with no lyrics are dropped; the song opens
+ * with a [Blank] group holding "."; the whole result is in capitals.
  */
 
 export const MAX_LINE = 25;
@@ -203,17 +204,38 @@ export function sanitizeDots(line: string): string {
  * optional bass note after a slash (C/G, G/B). Case-sensitive: roots are capitals.
  */
 const CHORD = /^[A-G][#b]?(?:maj|min|m|sus|dim|aug|add|M|\+|°|ø)?\d*(?:(?:maj|sus|dim|aug|add|[#b])\d*)*(?:\/[A-G][#b]?)?$/;
+/** "No chord" (N.C., NC, N C), normalised; a line of only this is removed like any chord line. */
+const NO_CHORD = 'NC';
 /** Bar lines and dashes that sit between chords on a chart. */
 const CHORD_SPACER = /^[|/\-–—]+$/;
 
 /**
  * Pre-processing 2: a line made only of chords and spacing ("G C/G",
- * "G/B Dsus", "Em C G") is a chord chart line, not lyrics. Run after
+ * "G/B Dsus", "Em C G", "N.C.") is a chord chart line, not lyrics. Run after
  * sanitizeDots so "G. C/G" is already "G C/G".
  */
 export function isChordLine(line: string): boolean {
-  const tokens = line.split(/\s+/).filter(Boolean).map((t) => t.replace(/^\((.*)\)$/, '$1'));
-  return tokens.some((t) => CHORD.test(t)) && tokens.every((t) => CHORD.test(t) || CHORD_SPACER.test(t));
+  const tokens = line
+    .replace(/[()[\]]/g, ' ')
+    // "No chord": N.C. arrives here as "N C" (dots are already spaces), or as NC.
+    .replace(/(?<![A-Za-z])N\s?C(?![A-Za-z])/gi, ' NC ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const isChord = (t: string) => CHORD.test(t) || t === NO_CHORD;
+  return tokens.some(isChord) && tokens.every((t) => isChord(t) || CHORD_SPACER.test(t));
+}
+
+const UNACCENTED: Record<string, string> = {
+  á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u',
+  Á: 'A', É: 'E', Í: 'I', Ó: 'O', Ú: 'U',
+};
+
+/**
+ * Pre-processing: accented Spanish vowels lose their accent (á -> a, É -> E).
+ * Only these ten characters change: ñ and Ñ are kept exactly as they are.
+ */
+export function stripVowelAccents(line: string): string {
+  return line.replace(/[áéíóúÁÉÍÓÚ]/g, (c) => UNACCENTED[c]);
 }
 
 /** Repeat markers in their own brackets: (x4), [x2], (2x), [×3]. */
@@ -243,16 +265,16 @@ export interface Preprocessed {
 }
 
 /**
- * The pre-processing passes, per line, before any formatting: alignment dots,
- * then repeat markers (so "G C (x2)" is recognisably a chord line), then chord
- * lines. A line left empty is kept as a blank line.
+ * The pre-processing passes, per line, before any formatting: vowel accents,
+ * alignment dots, repeat markers (so "G C (x2)" is recognisably a chord line),
+ * then chord lines. A line left empty is kept as a blank line.
  */
 export function preprocess(raw: string): Preprocessed {
   let chordLines = 0;
   let multipliers = 0;
   const lines: string[] = [];
   for (const rawLine of raw.replace(/\r\n?/g, '\n').split('\n')) {
-    const { line, removed } = stripMultipliers(sanitizeDots(rawLine));
+    const { line, removed } = stripMultipliers(sanitizeDots(stripVowelAccents(rawLine)));
     multipliers += removed;
     if (line && isChordLine(line)) {
       chordLines++;
@@ -394,7 +416,7 @@ export function formatSong(raw: string): FormatResult {
 
   // Sections: each recognised group label starts one; everything before the
   // first one (credits, keys, bpm, "Lyrics" headers) is metadata and dropped.
-  const sections: { group: MasterGroup; body: string[] }[] = [];
+  const sections: Section[] = [];
   let purged = 0;
   for (const raw of lines.slice(titleIndex + 1)) {
     const line = raw.trim();
@@ -429,12 +451,12 @@ export function formatSong(raw: string): FormatResult {
     warnings.push(`Removed ${purged} line${purged === 1 ? '' : 's'} of metadata between the title and the first group.`);
   }
 
-  // The song opens on the inserted [Blank]; an empty Blank/Instrumental label
-  // at the very start would only duplicate it.
-  if (sections[0]?.group === 'Blank' && !sections[0].body.length) sections.shift();
+  const kept = pruneEmptyGroups(sections);
+  for (const group of kept.removed) warnings.push(`Removed [${group}]: it had no lyrics under it.`);
 
+  // The inserted opening [Blank] is added here, after pruning, so it is never pruned.
   const blocks: string[] = [OPENING_BLANK];
-  for (const { group, body } of sections) {
+  for (const { group, body } of kept.sections) {
     const phrases: string[][] = [];
     for (const line of body) {
       const { lines: w, longWord } = wrapLine(line);
@@ -447,6 +469,33 @@ export function formatSong(raw: string): FormatResult {
     blocks.push([`[${group}]`, chunks.map((c) => c.join('\n')).join('\n\n')].filter(Boolean).join('\n'));
   }
 
-  const text = [`Title: ${title}`, ...blocks].join('\n\n');
-  return { text, title, groups: sections.map((s) => s.group), warnings };
+  // Absolute last step: everything in capitals. toUpperCase keeps ñ as Ñ.
+  const text = [`Title: ${title}`, ...blocks].join('\n\n').toUpperCase();
+  return { text, title, groups: kept.sections.map((s) => s.group), warnings };
+}
+
+interface Section {
+  group: MasterGroup;
+  body: string[];
+}
+
+/**
+ * Drop every group with no lyric lines under it (a stray [Tag] at the end, an
+ * [Instrumental] label). Two sections of the same group left side by side
+ * then merge, so the tag still appears once. Runs on the song's own groups
+ * only: the opening [Blank] and its period are added afterwards.
+ */
+export function pruneEmptyGroups(sections: Section[]): { sections: Section[]; removed: MasterGroup[] } {
+  const removed: MasterGroup[] = [];
+  const out: Section[] = [];
+  for (const section of sections) {
+    if (!section.body.length) {
+      removed.push(section.group);
+      continue;
+    }
+    const prev = out[out.length - 1];
+    if (prev?.group === section.group) prev.body.push(...section.body);
+    else out.push({ group: section.group, body: [...section.body] });
+  }
+  return { sections: out, removed };
 }

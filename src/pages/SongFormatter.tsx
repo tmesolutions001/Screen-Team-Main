@@ -7,18 +7,19 @@ import { Toast } from '@/components/Toast';
 import { MAX_LINE, formatSong } from '@/songs/formatSong';
 import { blurText, rowReveal, springs, staggerContainer, staggerItem } from '@/lib/motion';
 
-/** Placeholder text only: shows every rule (alignment dots, chord lines, repeat markers, metadata, Spanish labels, multipliers, wrapping, chunking). */
+/** Placeholder text only: shows every rule (alignment dots, chord and N.C. lines, repeat markers, accents, empty groups, metadata, Spanish labels, multipliers, wrapping, chunking). */
 const EXAMPLE = `Lorem.Ipsum.Dolor [G, 70 bpm, 4/4]
 Written.by.Consectetur.Adipiscing
 Key:.G........Tempo:.70
 
 Verse.I:
+N.C.
 G. C/G
 ........Lorem.ipsum.dolor.sit.amet.consectetur
 G/B. Dsus
 Adipiscing.elit.sed.do.eiusmod
 Em. C. G
-Tempor.incididunt.ut.labore
+Tempor.incidídunt.ut.labóre
 Et.dolore.magna.aliqua
 
 Pre-Coro
@@ -34,7 +35,9 @@ Velit esse cillum dolore (x2)
 
 Puente ×4
 Excepteur sint occaecat cupidatat
-Non proident sunt in culpa
+Non proident sunt in culpa señor
+
+Tag
 `;
 
 const MotionPanel = motion.create(GlassPanel);
@@ -50,12 +53,12 @@ const Output = ({ text }: { text: string }) => {
       {lines.map((line, i) => (
         <Fragment key={i}>
           {i > 0 && '\n'}
-          {line === '.' && i > 0 && lines[i - 1] === '[Blank]' ? (
+          {line === '.' && i > 0 && lines[i - 1]?.toUpperCase() === '[BLANK]' ? (
             // The placeholder period the operator removes after importing.
             <span className="font-semibold text-[var(--accent-warm-2)]">{line}</span>
           ) : line.startsWith('[') ? (
             <span className="font-semibold text-[var(--accent-2)]">{line}</span>
-          ) : line.startsWith('Title: ') ? (
+          ) : /^title: /i.test(line) ? (
             <span className="font-semibold text-foreground">{line}</span>
           ) : (
             line
@@ -101,7 +104,7 @@ const SongFormatter = () => {
 
   const slides = result.text ? result.text.split('\n\n').length - 1 : 0;
   const longest = result.text
-    ? Math.max(0, ...result.text.split('\n').filter((l) => l && !l.startsWith('[') && !l.startsWith('Title: ')).map((l) => l.length))
+    ? Math.max(0, ...result.text.split('\n').filter((l) => l && !l.startsWith('[') && !/^title: /i.test(l)).map((l) => l.length))
     : 0;
 
   const copy = async () => {
