@@ -22,6 +22,8 @@ interface GameHeaderProps {
   /** Latest answer result; flashes the score green or red. */
   feedback: Feedback | null;
   onQuit: () => void;
+  /** HUD text in the round's language. Pass a stable object (the memo compares it). */
+  labels: { mode: string; timeLeft: string; score: string; quit: string; progress: string };
 }
 
 const Label = ({ children }: { children: React.ReactNode }) => (
@@ -38,7 +40,7 @@ const glowStyle = (color: string): React.CSSProperties => ({
  * Memoized: the page re-renders on every keystroke, the HUD only when its props change.
  */
 export const GameHeader = memo(function GameHeader({
-  modeLabel, segmentLabel, score, total, timeLeft, timeLow, progress, feedback, onQuit,
+  modeLabel, segmentLabel, score, total, timeLeft, timeLow, progress, feedback, onQuit, labels,
 }: GameHeaderProps) {
   const [scoreRef, animate] = useAnimate<HTMLDivElement>();
   const reduceMotion = useReducedMotion();
@@ -60,11 +62,11 @@ export const GameHeader = memo(function GameHeader({
         <div className="grid grid-cols-3 items-end">
           <div className="flex items-end gap-3">
             {/* tabIndex -1: reachable by mouse, but Tab never pulls focus off the answer field */}
-            <IconButton onClick={onQuit} tabIndex={-1} aria-label="Quit round" className="h-9 w-9 shrink-0">
+            <IconButton onClick={onQuit} tabIndex={-1} aria-label={labels.quit} className="h-9 w-9 shrink-0">
               <X className="h-4 w-4" />
             </IconButton>
             <div className="min-w-0">
-              <Label>Mode</Label>
+              <Label>{labels.mode}</Label>
               <p className="flex items-baseline gap-2 text-2xl font-semibold tracking-tight whitespace-nowrap">
                 {modeLabel}
                 <AnimatePresence mode="popLayout">
@@ -86,7 +88,7 @@ export const GameHeader = memo(function GameHeader({
           </div>
 
           <div className="text-center">
-            <Label>Time left</Label>
+            <Label>{labels.timeLeft}</Label>
             <p
               className={cn(
                 'inline-flex items-center gap-2 font-mono text-2xl font-semibold tabular-nums transition-colors duration-300',
@@ -102,7 +104,7 @@ export const GameHeader = memo(function GameHeader({
             <span data-glow="ok" aria-hidden="true" className="pointer-events-none absolute -inset-x-4 -inset-y-1.5 rounded-xl opacity-0" style={glowStyle('var(--ok)')} />
             <span data-glow="miss" aria-hidden="true" className="pointer-events-none absolute -inset-x-4 -inset-y-1.5 rounded-xl opacity-0" style={glowStyle('var(--miss)')} />
             <div className="relative">
-              <Label>Score</Label>
+              <Label>{labels.score}</Label>
               <p data-score className="origin-right font-mono text-2xl font-semibold tabular-nums">
                 <span className="text-ok">{score}</span>
                 <span className="text-muted-foreground">/{total}</span>
@@ -111,7 +113,7 @@ export const GameHeader = memo(function GameHeader({
           </div>
         </div>
 
-        <Progress value={progress} className="mt-3 h-1.5 bg-white/10" aria-label="Round progress" />
+        <Progress value={progress} className="mt-3 h-1.5 bg-white/10" aria-label={labels.progress} />
       </GlassPanel>
     </header>
   );

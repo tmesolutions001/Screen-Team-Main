@@ -26,12 +26,45 @@ const cancelIfBusy = (s: SpeechSynthesis) => {
   if (s.speaking || s.pending) s.cancel();
 };
 
-const fire = (gen: number, text: string, rate: number, retry: boolean) => {
+/**
+ * The best installed voice for a language: an exact match ("es-MX"), then
+ * nearby variants in order of preference, then any voice of that language.
+ * Undefined leaves the choice to the browser (it uses `utterance.lang`).
+ */
+const VOICE_PREFERENCE: Record<string, string[]> = { es: ['es-MX', 'es-US', 'es-419', 'es-ES'] };
+// Chrome loads voices asynchronously: getVoices() can be empty for the first
+// prompt. Keep a copy that refreshes when the list arrives or changes.
+let voiceList: SpeechSynthesisVoice[] = [];
+const refreshVoices = () => {
+  const s = synth();
+  if (s) voiceList = s.getVoices();
+};
+synth()?.addEventListener?.('voiceschanged', refreshVoices);
+refreshVoices();
+
+const pickVoice = (s: SpeechSynthesis, lang: string): SpeechSynthesisVoice | undefined => {
+  if (!voiceList.length) refreshVoices();
+  const voices = voiceList.length ? voiceList : s.getVoices();
+  const base = lang.split('-')[0];
+  const wanted = [lang, ...(VOICE_PREFERENCE[base] ?? [])].map((l) => l.toLowerCase());
+  for (const l of wanted) {
+    const v = voices.find((voice) => voice.lang.replace('_', '-').toLowerCase() === l);
+    if (v) return v;
+  }
+  return voices.find((voice) => voice.lang.toLowerCase().startsWith(base));
+};
+
+const fire = (gen: number, text: string, rate: number, retry: boolean, lang?: string) => {
   const s = synth();
   if (!s || gen !== generation) return;
 
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = rate;
+  if (lang) {
+    utterance.lang = lang;
+    const voice = pickVoice(s, lang);
+    if (voice) utterance.voice = voice;
+  }
   let started = false;
   utterance.onstart = () => {
     started = true;
@@ -43,19 +76,19 @@ const fire = (gen: number, text: string, rate: number, retry: boolean) => {
 
   if (retry) {
     setTimeout(() => {
-      if (gen === generation && !started && !s.speaking && !s.pending) fire(gen, text, rate, false);
+      if (gen === generation && !started && !s.speaking && !s.pending) fire(gen, text, rate, false, lang);
     }, START_TIMEOUT_MS);
   }
 };
 
-/** Speak `text` for `owner`, replacing whatever is currently being spoken. */
-export const speak = (owner: object, text: string, rate = 1.5) => {
+/** Speak `text` for `owner`, replacing whatever is currently being spoken; `lang` (e.g. "es-MX") picks a matching voice, otherwise the default voice is used. */
+export const speak = (owner: object, text: string, rate = 1.5, lang?: string) => {
   const s = synth();
   if (!s) return;
   currentOwner = owner;
   const gen = ++generation;
   cancelIfBusy(s);
-  setTimeout(() => fire(gen, text, rate, true), SPEAK_DELAY_MS);
+  setTimeout(() => fire(gen, text, rate, true, lang), SPEAK_DELAY_MS);
 };
 
 /** Stop speaking, but only if `owner` is the one speaking. */

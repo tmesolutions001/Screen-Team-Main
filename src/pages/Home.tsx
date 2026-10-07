@@ -12,20 +12,18 @@ const Home = () => {
     <div className="min-h-screen flex items-center justify-center p-6">
       <motion.div variants={staggerContainer} className="w-full max-w-2xl space-y-10">
         <motion.header variants={staggerItem} className="text-center space-y-3">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">V1.0</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">V2.0</p>
           <h1 className="text-6xl font-bold tracking-tight text-gradient leading-tight">Screen Team App</h1>
           <p className="text-lg text-muted-foreground">Tools for the booth.</p>
         </motion.header>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* Not wired up yet: the formatter arrives in a later phase. */}
           <GlassTile
             variants={staggerItem}
             icon={<FileMusic className="h-6 w-6" />}
             title="Song Formatter"
             description="Clean up and reformat song lyrics for slides."
-            badge="Coming soon"
-            inactive
+            onClick={() => navigate('/songs')}
           />
           <GlassTile
             variants={staggerItem}

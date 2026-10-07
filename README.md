@@ -2,11 +2,46 @@
 
 Tools for ProPresenter operators.
 
-- **Simulator** — rapid-fire scripture reference trainer. A prompt is spoken aloud
-  (e.g. "John 3 verse 16") and the operator types it as fast as possible; a round lasts 60 seconds.
-  Modes: **Classic** (book chapter verse), **Chapter–Verse**, **Book**, and **Warm Up**
-  (ordinals, then each of the other modes, in 15-second segments).
-- **Song Formatter** — planned; the home tile is a placeholder.
+- **Simulator** — rapid-fire scripture reference trainer. A prompt is spoken aloud (e.g. "John 3
+  verse 16") and the operator types it as fast as possible; a round lasts 60 seconds. Modes:
+  **Classic** (book chapter verse), **Chapter–Verse**, **Book**, and **Warm Up** (Chapter–Verse,
+  Book, then Classic, 30 s each; each segment's name is shown and spoken, then a 3-2-1 countdown,
+  with a switch sound between segments; the clock only runs while playing). The results table
+  explains every miss: an **Issue** pill (e.g. *Opens earlier book*) opens a popup saying what the
+  typing would actually have opened, what was missing, and the fastest correct answer. Colons count
+  as a miss: typing a space is faster. **English / Español:** a pill on the simulator menu switches
+  the simulator (menu, rounds, results, narration) to Spanish: Spanish book names from
+  `public/BookInfoEs.xml`, abbreviations in `src/utils/bookValidationEs.ts` (first come, first
+  served; the Gospels need `S.`, e.g. `s. mat`), Spanish speech and translated Issue explanations.
+  The rest of the app stays in English.
+- **Song Formatter** — paste raw lyrics, copy slide-ready text. First, alignment dots
+  (`....Lorem.ipsum.dolor`) become spaces, repeat markers (`x2`, `(x4)`, `×4`) are removed from
+  labels and lyrics, and chord-only lines (`G C/G`, `Em C G`, `N.C.`, `|BM / D/F# / | G / / /`) are
+  removed, and accented vowels lose their accent (á → a; ñ and ü are kept). The first line becomes
+  `Title: …` (trailing `[…]` metadata removed). Obvious metadata lines are dropped wherever they
+  appear (fully [bracketed] or (parenthesised) lines, bpm, 4/4, `Key:`, credits such as `] by …` or
+  "Words and Music by", and roadmaps such as `Intro, V1, C, V2, C×2, B`, including ones that wrap
+  over several lines and use `INST`, `INTER`, `RF`); everything else is kept as lyrics. Lyrics
+  before any group label start under `[Verse 1]`, and untagged stanzas stay under the current group.
+  If the first line is itself a group label, the title is missing: a "No Title Detected!" popup asks
+  for one (Skip leaves the Title line out). Labels in English or Spanish (Verso, Coro, Puente,
+  Pre-Coro, Final/Salida, Etiqueta, Estribillo), abbreviated, misspelled or with multipliers (`Coro
+  x2`, `V1`, `Puente ×4`, `Chrous`) map to fixed groups (`[Verse 1]`, `[Chorus]`, `[PreChorus]`, …).
+  Lines wrap at word boundaries to 25 characters, balanced so no line is left with a stray word (a
+  28-character line becomes two of about 14; words are never split), and each stanza is split into
+  2–3-line slides on its own (a stanza break is always a slide break; exactly four lines is always 2
+  + 2), keeping a wrapped lyric line on one slide where possible. Each group's tag is written once,
+  with slides separated by a blank line; groups with no lyrics under them are dropped. The song
+  opens with `[Blank]` holding a single `.` so ProPresenter keeps the group; copying shows a
+  5-second reminder to remove that period. The whole result is in capitals. The output can be edited
+  by hand: Edit unlocks it (new keystrokes blur in like a round's answer) and Save locks it; Copy
+  always takes what is in the box, edits included.
+
+## Docs
+
+- [`CLAUDE.md`](CLAUDE.md): commands, layout, conventions, the Song Formatter pipeline and testing rules.
+- [`ANIMATIONS.md`](ANIMATIONS.md): how motion works here (philosophy, style, and the techniques that
+  keep every animation interruptible, reversible and smooth).
 
 ## Development
 
@@ -20,7 +55,9 @@ Stack: React 18, Vite, TypeScript, Tailwind CSS, Motion. Book/chapter/verse data
 
 ## Layout
 
-- `src/pages` — `Home` (app home), `Simulator` (mode menu), `Game`, `End` (results)
-- `src/game` — `engine.ts` (prompts and scoring), `useGame.ts` (round state, clock, feedback)
+- `src/pages` — `Home` (app home), `SongFormatter`, `Simulator` (mode menu), `Game`, `End` (results)
+- `src/game` — `engine.ts` (prompts and scoring), `diagnose.ts` (why a miss was wrong), `warmup.ts` (Warm Up schedule), `useGame.ts` (round state, clock, feedback)
+- `src/components` — `AnswerField` (blur-in typing field), `EditableOutput` (Song Formatter output), `TitlePrompt`, `Toast`, `IssueButton`
 - `src/components/glass` — frosted-glass component set; design tokens are in `src/index.css`
+- `src/songs` — `formatSong.ts` (Song Formatter rules and group dictionary)
 - `src/lib` — `motion.ts` (shared springs/variants), `sfx.ts` (synthesized sounds), `settings.ts`

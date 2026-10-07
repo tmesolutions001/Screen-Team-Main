@@ -1,10 +1,8 @@
 /**
- * Answer feedback sounds, synthesized with Web Audio: no assets to load,
+ * Answer feedback and Warm Up cue sounds, synthesized with Web Audio: no assets to load,
  * no decode latency, works offline. Kept short and quiet so they never mask
  * the next spoken prompt.
  */
-
-import { getSettings } from './settings';
 
 let ctx: AudioContext | null = null;
 
@@ -76,7 +74,26 @@ export const playWrong = () => {
 };
 
 export const playResult = (correct: boolean) => {
-  if (!getSettings().sfx) return;
   if (correct) playCorrect();
   else playWrong();
+};
+
+/** Countdown beat: a low, round thump with a soft click on top for definition. */
+export const playThump = () => {
+  const ac = getContext();
+  if (!ac) return;
+  playTone(ac, { type: 'sine', freq: 130, endFreq: 48, duration: 0.28, gain: 0.5 });
+  playTone(ac, { type: 'triangle', freq: 260, endFreq: 90, duration: 0.06, gain: 0.1, lowpass: 900 });
+};
+
+/**
+ * Warm Up is moving to its next mode: a rising three-note arpeggio (C5 E5 G5),
+ * lower and longer than the correct-answer chime so the two never read alike.
+ */
+export const playSegmentSwitch = () => {
+  const ac = getContext();
+  if (!ac) return;
+  [523.25, 659.25, 783.99].forEach((freq, i) =>
+    playTone(ac, { type: 'triangle', freq, delay: i * 0.11, duration: 0.42, gain: 0.13, lowpass: 2400 })
+  );
 };

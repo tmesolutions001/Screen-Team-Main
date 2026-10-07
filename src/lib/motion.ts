@@ -57,8 +57,36 @@ export const staggerItem: Variants = {
   enter: { opacity: 1, y: 0, transition: springs.smooth },
 };
 
-/** List rows that step in one after another. */
-export const rowVariants: Variants = {
-  initial: { opacity: 0, y: 12 },
-  enter: { opacity: 1, y: 0 },
-};
+/**
+ * A list row that grows into place. Height uses an overdamped spring (no
+ * overshoot past its natural size, so the rows below never wobble); blur and
+ * opacity are short tweens, like answer letters, since a spring could carry
+ * blur negative. Settled rows drop the filter so they don't stay a filter layer.
+ */
+export const rowReveal = {
+  initial: { height: 0, opacity: 0, y: 10, filter: 'blur(6px)' },
+  animate: { height: 'auto', opacity: 1, y: 0, filter: 'blur(0px)', transitionEnd: { filter: 'none' } },
+  transition: {
+    height: { type: 'spring', stiffness: 260, damping: 36 },
+    y: springs.smooth,
+    opacity: { duration: 0.28, ease: 'easeOut' },
+    filter: { duration: 0.32, ease: 'easeOut' },
+  },
+} as const;
+
+/**
+ * Text that resolves out of a slight blur and rise: typed answer letters, Warm
+ * Up titles and countdown digits. Opacity/blur are short tweens (a spring could
+ * overshoot into an invalid negative blur); only the rise is sprung. Settled
+ * text drops its filter so it stops being its own filter layer.
+ */
+export const blurText = {
+  initial: { opacity: 0, filter: 'blur(8px)', y: 4 },
+  animate: { opacity: 1, filter: 'blur(0px)', y: 0, transitionEnd: { filter: 'none' } },
+  exit: { opacity: 0, filter: 'blur(8px)', y: -4 },
+  transition: {
+    ...springs.snappy,
+    opacity: { duration: 0.16, ease: 'easeOut' },
+    filter: { duration: 0.22, ease: 'easeOut' },
+  },
+} as const;

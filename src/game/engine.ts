@@ -1,5 +1,7 @@
 import { validateInput } from '@/utils/bookValidation';
 import { speak, stop } from '@/lib/speech';
+import { diagnose, type BookData, type Diagnosis } from './diagnose';
+import { BOOK_SETS, type BookSet, type Lang } from './books';
 
 export const GAME_MODES = ['classic', 'chapter-verse', 'book', 'warmup'] as const;
 export type GameMode = (typeof GAME_MODES)[number];
@@ -8,6 +10,8 @@ export interface MissedPrompt {
   id: number;
   prompt: string;
   userInput: string;
+  /** Why it was wrong, for the results table. */
+  diagnosis: Diagnosis;
 }
 
 export interface GameCallbacks {
@@ -18,41 +22,29 @@ export interface GameCallbacks {
   onResult: (correct: boolean) => void;
 }
 
-export const MODE_LABEL: Record<GameMode, string> = {
-  classic: 'Classic',
-  'chapter-verse': 'Chapter–Verse',
-  book: 'Book',
-  warmup: 'Warm Up',
-};
-
 export const parseMode = (value?: string): GameMode =>
   (GAME_MODES as readonly string[]).includes(value ?? '') ? (value as GameMode) : 'classic';
 
 /** What the space bar should do in the current mode. */
 export type SpaceAction = 'type' | 'submit';
 
-const ORDINAL_WORDS = ['', 'First', 'Second', 'Third'];
-
-/** Warm-up answers: "second" and "2" are the same answer, as they are when typing "2 Kings". */
-const normalizeOrdinal = (text: string) => {
-  const t = text.trim().toLowerCase();
-  const i = ORDINAL_WORDS.findIndex((w) => w.toLowerCase() === t);
-  return i > 0 ? String(i) : t;
-};
-
-// One parsed copy of the book data shared by every round, so hopping between
-// modes never waits on a fetch or races an unmount.
-let bookDocPromise: Promise<Document | null> | null = null;
+// One parsed copy of each language's book data, shared by every round, so
+// hopping between modes never waits on a fetch or races an unmount.
+const bookDocs = new Map<string, Promise<Document | null>>();
 const loadBookDoc = (filePath: string) => {
-  bookDocPromise ??= fetch(filePath)
-    .then((r) => r.text())
-    .then((xml) => new DOMParser().parseFromString(xml, 'text/xml'))
-    .catch((error) => {
-      console.error('Error loading XML:', error);
-      bookDocPromise = null; // let the next round retry
-      return null;
-    });
-  return bookDocPromise;
+  let doc = bookDocs.get(filePath);
+  if (!doc) {
+    doc = fetch(filePath)
+      .then((r) => r.text())
+      .then((xml) => new DOMParser().parseFromString(xml, 'text/xml'))
+      .catch((error) => {
+        console.error('Error loading XML:', error);
+        bookDocs.delete(filePath); // let the next round retry
+        return null;
+      });
+    bookDocs.set(filePath, doc);
+  }
+  return doc;
 };
 
 export class BibleGame {
@@ -65,48 +57,75 @@ export class BibleGame {
   private currentPrompt = '';
   private mode: GameMode;
 
-  constructor(private callbacks: GameCallbacks, mode: GameMode) {
+  /** The language's books, abbreviations and speech. */
+  private books: BookSet;
+
+  constructor(private callbacks: GameCallbacks, mode: GameMode, lang: Lang = 'en') {
     this.mode = mode;
+    this.books = BOOK_SETS[lang];
   }
 
-  async loadXmlDocument(filePath: string) {
-    this.doc = await loadBookDoc(filePath);
+  /** Book data for the round's language. */
+  async loadXmlDocument() {
+    this.doc = await loadBookDoc(this.books.file);
+  }
+
+  /** Chapter/verse counts for diagnosing misses. */
+  private bookData(): BookData | undefined {
+    const doc = this.doc;
+    if (!doc) return undefined;
+    const find = (book: string) =>
+      Array.from(doc.getElementsByTagName('Book')).find((b) => b.getAttribute('ID') === book);
+    return {
+      chapterCount: (book) => find(book)?.getElementsByTagName('Chapter').length,
+      verseCount: (book, chapter) => {
+        const ch = Array.from(find(book)?.getElementsByTagName('Chapter') ?? [])
+          .find((c) => c.getAttribute('Number') === String(chapter));
+        return ch ? parseInt(ch.getAttribute('VerseCount') || '0') : undefined;
+      },
+    };
   }
 
   speakPrompt(text: string) {
-    const speakText = text.replace(':', ' verse ');
-    const formattedText = speakText.replace(/^(\d+)\s+/, (match, number) => {
-      const n = parseInt(number, 10);
-      if (n >= 1 && n <= 3) {
-        return `${ORDINAL_WORDS[n].toLowerCase()} `;
-      }
-      return match; // keep numbers like 12 as-is
-    });
-    speak(this, formattedText);
+    // Each language reads references its own way ("second Kings 6 verse 3",
+    // "Primera de Reyes 6, versículo 3"); only a book number becomes an ordinal.
+    speak(this, this.books.spoken(text), this.books.speechRate, this.books.speechLang);
   }
 
   cancelSpeech() {
     stop(this);
   }
 
+  /** Resets the round. Warm Up has no prompt until its first segment begins. */
   start() {
     this.points = 0;
     this.numPrompts = 0;
     this.incorrectInputs = [];
     this.bookUsageCounts.clear();
     this.lastBook = null;
+    this.currentPrompt = '';
+    if (this.mode !== 'warmup') this.generateNewPrompt();
+  }
+
+  /** Warm Up: start drilling `mode` with a fresh prompt. */
+  beginSegment(mode: GameMode) {
+    this.mode = mode;
     this.generateNewPrompt();
   }
 
-  generateNewPrompt() {
-    if (this.mode === 'warmup') {
-      const isWord = Math.random() < 0.5;
-      const n = Math.floor(Math.random() * 3) + 1;
-      this.setPrompt(isWord ? ORDINAL_WORDS[n] : String(n));
-      return;
-    }
+  /** Warm Up: between segments there is no prompt, so answers are ignored. */
+  pause() {
+    this.currentPrompt = '';
+    this.cancelSpeech();
+  }
 
-    if (!this.doc) return;
+  /** Speak a segment title. Owned like prompts, so leaving the page silences it. */
+  announce(text: string) {
+    speak(this, text, 1.1, this.books.speechLang);
+  }
+
+  generateNewPrompt() {
+    if (this.mode === 'warmup' || !this.doc) return;
 
     const books = Array.from(this.doc.getElementsByTagName('Book'));
     let availableBooks = books.filter(book => {
@@ -150,22 +169,20 @@ export class BibleGame {
    */
   handleInput(input: string) {
     const user = input.trim();
-    if (!user) return;
+    if (!user || !this.currentPrompt) return;
 
     this.cancelSpeech();
     let correct = false;
 
     if (this.mode === 'classic') {
-      correct = validateInput(user, this.currentPrompt);
+      correct = validateInput(user, this.currentPrompt, this.books.variations);
     } else if (this.mode === 'chapter-verse') {
-      const normalized = user.replace(/\s+/, ':');
-      correct = normalized === this.currentPrompt;
+      // Spaces only: typing the colon is slower, so it's taught as a miss.
+      correct = /^\d+\s+\d+$/.test(user) && user.replace(/\s+/, ':') === this.currentPrompt;
     } else if (this.mode === 'book') {
       const testInput = `${user} 1 1`;
       const testPrompt = `${this.currentPrompt} 1:1`;
-      correct = validateInput(testInput, testPrompt);
-    } else if (this.mode === 'warmup') {
-      correct = normalizeOrdinal(user) === normalizeOrdinal(this.currentPrompt);
+      correct = validateInput(testInput, testPrompt, this.books.variations);
     }
 
     if (correct) {
@@ -174,7 +191,12 @@ export class BibleGame {
     } else {
       this.incorrectInputs = [
         ...this.incorrectInputs,
-        { id: this.numPrompts, prompt: this.currentPrompt, userInput: input },
+        {
+          id: this.numPrompts,
+          prompt: this.currentPrompt,
+          userInput: input,
+          diagnosis: diagnose(this.mode, this.currentPrompt, user, this.bookData(), this.books.lang),
+        },
       ];
       this.callbacks.onMissed(this.incorrectInputs);
     }
@@ -185,15 +207,17 @@ export class BibleGame {
   }
 
   /**
-   * Book mode submits on space (numbered books like "1 John" allow one space first);
-   * warm-up always submits on space. Other modes type the space normally.
+   * Book mode submits on space, after as many spaces as the book's shortest
+   * abbreviation needs: one for numbered books ("1 john") and for Spanish
+   * Gospels ("s. mat"), none otherwise. Other modes type the space normally.
    */
   spaceAction(input: string): SpaceAction {
     if (this.mode === 'book') {
-      const isNumberedBook = /^([1-3])\s/.test(this.currentPrompt);
-      return isNumberedBook && !input.includes(' ') ? 'type' : 'submit';
+      const needed = (this.books.variations[this.currentPrompt]?.[0].match(/ /g) ?? []).length;
+      const typed = (input.trim().match(/\s+/g) ?? []).length;
+      return typed < needed ? 'type' : 'submit';
     }
-    return this.mode === 'warmup' ? 'submit' : 'type';
+    return 'type';
   }
 
   getTotalPrompts(): number {
@@ -206,12 +230,5 @@ export class BibleGame {
 
   getCurrentPrompt(): string {
     return this.currentPrompt;
-  }
-
-  setMode(newMode: GameMode) {
-    if (this.mode !== newMode) {
-      this.mode = newMode;
-      this.generateNewPrompt();
-    }
   }
 }

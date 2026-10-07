@@ -4,16 +4,16 @@ export const bookVariations = {
     "Exodus": ["e", "ex", "exo", "exod", "exodu", "exodus"],
     "Leviticus": ["l", "le", "lev", "levi", "levit", "leviti", "levitic", "leviticu", "leviticus"],
     "Numbers": ["n", "nu", "num", "numb", "numbe", "number", "numbers"],
-    "Deuteronomy": ["d", "de", "deu", "deut", "deute", "deuter", "deutero", "deuterono", "deuteronom", "deuteronomy"],
+    "Deuteronomy": ["d", "de", "deu", "deut", "deute", "deuter", "deutero", "deuteron", "deuterono", "deuteronom", "deuteronomy"],
     "Joshua": ["j", "jo", "jos", "josh", "joshu", "joshua"],
-    "Judges": ["ju", "jud", "judge", "judges"],
+    "Judges": ["ju", "jud", "judg", "judge", "judges"],
     "Ruth": ["r", "ru", "rut", "ruth"],
     "1 Samuel": ["1 s", "1 sa", "1 sam", "1 samu", "1 samue", "1 samuel"],
     "2 Samuel": ["2 s", "2 sa", "2 sam", "2 samu", "2 samue", "2 samuel"],
     "1 Kings": ["1 k", "1 ki", "1 kin", "1 king", "1 kings"],
     "2 Kings": ["2 k", "2 ki", "2 kin", "2 king", "2 kings"],
-    "1 Chronicles": ["1 c", "1 ch", "1 chr", "1 chron", "1 chronic", "1 chronicl", "1 chronicle", "1 chronicles"],
-    "2 Chronicles": ["2 c", "2 ch", "2 chr", "2 chron", "2 chronic", "2 chronicl", "2 chronicle", "2 chronicles"],
+    "1 Chronicles": ["1 c", "1 ch", "1 chr", "1 chro", "1 chron", "1 chroni", "1 chronic", "1 chronicl", "1 chronicle", "1 chronicles"],
+    "2 Chronicles": ["2 c", "2 ch", "2 chr", "2 chro", "2 chron", "2 chroni", "2 chronic", "2 chronicl", "2 chronicle", "2 chronicles"],
     "Ezra": ["ez", "ezr", "ezra"],
     "Nehemiah": ["ne", "neh", "nehe", "nehem", "nehemi", "nehemia", "nehemiah"],
     "Esther": ["es", "est", "esth", "esthe", "esther"],
@@ -68,7 +68,18 @@ export const bookVariations = {
     "Revelation": ["re", "rev", "reve", "revel", "revela", "revelat", "revelati", "revelatio", "revelation"]
 };
 
-export const validateInput = (input: string, prompt: string): boolean => {
+/** Typed accents don't matter to the lookup ("génesis" = "genesis"). */
+const unaccent = (text: string) => text.replace(/[áéíóúü]/g, (c) => ({ á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u', ü: 'u' })[c] ?? c);
+
+/**
+ * True when `input` ("gen 1 1") opens exactly the prompt ("Genesis 1:1").
+ * `variations` is the abbreviation table of the round's language (English by default).
+ */
+export const validateInput = (
+    input: string,
+    prompt: string,
+    variations: Readonly<Record<string, readonly string[]>> = bookVariations
+): boolean => {
     // Split the prompt into book and reference
     // The reference is the last word and everything before it is the book. Splitting on
     // the first space broke every multi-word book ("2 Kings", "Song of Solomon").
@@ -78,7 +89,7 @@ export const validateInput = (input: string, prompt: string): boolean => {
     const [promptChapter, promptVerse] = promptReference.split(':');
 
     // Split user input into parts (assuming format like "gen 1 1" or "genesis 1 1")
-    const inputParts = input.toLowerCase().trim().split(/\s+/);
+    const inputParts = unaccent(input.toLowerCase()).trim().split(/\s+/);
     if (inputParts.length < 3) return false;
 
     // Extract book, chapter, and verse from input
@@ -87,9 +98,7 @@ export const validateInput = (input: string, prompt: string): boolean => {
     const inputVerse = inputParts[inputParts.length - 1];
 
     // Find the full book name that matches the input
-    const fullBookName = Object.entries(bookVariations).find(([book, variations]) => {
-        return variations.includes(inputBook.toLowerCase());
-    })?.[0];
+    const fullBookName = Object.entries(variations).find(([, abbreviations]) => abbreviations.includes(inputBook))?.[0];
 
     // Validate all three parts
     const isBookValid = fullBookName === promptBook;
