@@ -58,6 +58,16 @@ npx tsc -p tsconfig.app.json --noEmit   # typecheck (the build does not typechec
   - `settings.ts`: persisted settings (the simulator language)
 - `public/BookInfo.xml` / `public/BookInfoEs.xml`: books, chapters and verse counts (English / Spanish)
 
+## Deployment
+
+- Hosted on **Vercel**, project `screen-team` (team "Tim"), production URL https://screen-team.vercel.app.
+  Vite is auto-detected (`npm run build`, output `dist/`).
+- `vercel.json` rewrites every path to `index.html`, so client-side routes (`/simulator`, `/songs`,
+  `/game/...`) work when opened directly or refreshed. Real files (`/BookInfo.xml`, assets) are
+  served first, so they are unaffected.
+- The Vercel project's Git connection must point at `tmesolutions001/Screen-Team-Main` for merges to
+  `main` to deploy automatically (it was created against an older `Screen-Team` repo).
+
 ## Conventions
 
 ### Motion (read `ANIMATIONS.md`)
