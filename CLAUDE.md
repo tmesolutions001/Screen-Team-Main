@@ -57,6 +57,8 @@ npx tsc -p tsconfig.app.json --noEmit   # typecheck (the build does not typechec
   - `speech.ts`: speech synthesis with ownership
   - `settings.ts`: persisted settings (the simulator language)
 - `public/BookInfo.xml` / `public/BookInfoEs.xml`: books, chapters and verse counts (English / Spanish)
+- `public/favicon.ico`, `favicon-32x32.png`, `apple-touch-icon.png`, `og-image.png`: the app icon (neon
+  monitor) and link-preview card, linked from `index.html`. No Lovable branding remains.
 
 ## Deployment
 
