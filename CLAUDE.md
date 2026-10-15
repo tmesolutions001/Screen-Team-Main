@@ -141,7 +141,8 @@ Every removal or judgement call adds a note to `warnings`, which the page shows 
   Enhanced/Premium such as Carlos, detected by name or `voiceURI`; then Google; then the named natural
   voices), then the closest region (es-MX, es-US, es-419, other Latin American regions, es-ES last).
   macOS's character voices (Eddy, Grandma, …) are listed first in Chrome and are always ranked last.
-  English keeps the computer's default voice when it is English; if the default is another language
+  English uses Apple's **Evan (Enhanced)** when it is installed (owner's choice; Premium or plain Evan
+  next). Otherwise it keeps the computer's default voice when it is English; if the default is another language
   (a Mac whose system voice was set to Carlos), it ranks English voices the same way (en-US first).
 - Abbreviations in both languages follow one rule: walking the books in Bible order, every prefix of a name
   (ending in a letter) belongs to the first book that has it. The Gospels are matched as
