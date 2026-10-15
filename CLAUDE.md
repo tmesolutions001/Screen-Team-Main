@@ -137,6 +137,10 @@ Every removal or judgement call adds a note to `warnings`, which the page shows 
   Only the simulator is translated: never use `useSimText` on the home page or the Song Formatter.
 - Spanish speech writes chapter and verse numbers out as Spanish words (`spanishNumber`), so they
   are spoken in Spanish even when the computer has no Spanish voice. English speaks digits.
+- Spanish picks its own voice (`rankVoice` in `lib/speech.ts`): best quality first (neural/enhanced,
+  then Google, then the named natural voices), then the closest region (es-MX, es-US, es-419, es-ES).
+  macOS's character voices (Eddy, Grandma, …) are listed first in Chrome and are always ranked last.
+  English uses the browser's default voice.
 - Abbreviations in both languages follow one rule: walking the books in Bible order, every prefix of a name
   (ending in a letter) belongs to the first book that has it. The Gospels are matched as
   `S. Mateo`, `S. Marcos`, `S. Lucas`, `S. Juan`, so `s. mat` scores and `mat` doesn't.
