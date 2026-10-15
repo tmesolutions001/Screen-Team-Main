@@ -26,8 +26,15 @@ const cancelIfBusy = (s: SpeechSynthesis) => {
   if (s.speaking || s.pending) s.cancel();
 };
 
-/** Nearby variants of a language, in order of preference; other regions follow, and the `last` one comes after them. */
-const VOICE_PREFERENCE: Record<string, { first: string[]; last?: string }> = {
+/**
+ * Nearby variants of a language, in order of preference; other regions follow,
+ * and the `last` one comes after them. `system` keeps the computer's default
+ * voice when it speaks that language (English sounds as it always has), and
+ * ranks the rest only when the default is another language, e.g. a Mac whose
+ * system voice was set to a Spanish voice.
+ */
+const VOICE_PREFERENCE: Record<string, { first: string[]; last?: string; system?: boolean }> = {
+  en: { first: ['en-US', 'en-GB', 'en-AU', 'en-CA'], system: true },
   es: { first: ['es-MX', 'es-US', 'es-419'], last: 'es-ES' },
 };
 
@@ -36,7 +43,7 @@ const VOICE_PREFERENCE: Record<string, { first: string[]; last?: string }> = {
  * language, alphabetically ahead of the natural ones, so in Chrome on a Mac the
  * first "es-MX" voice is a robotic "Eddy" or "Grandma".
  */
-const CHARACTER_VOICES = /^(Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley|Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox)\b/i;
+const CHARACTER_VOICES = /^(Fred|Junior|Kathy|Ralph|Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley|Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox)\b/i;
 
 /**
  * Higher is better: neural and downloaded high-quality voices (Apple's Enhanced
@@ -48,7 +55,7 @@ const voiceQuality = (voice: SpeechSynthesisVoice) => {
   if (CHARACTER_VOICES.test(name)) return 0;
   if (/natural|neural|premium|enhanced|mejorad/i.test(`${name} ${voice.voiceURI ?? ''}`)) return 4;
   if (/^Google\b/i.test(name)) return 3;
-  if (/^(Paulina|M[oó]nica|Juan|Jorge|Diego|Ang[eé]lica|Marisol|Francisca|Carlos|Soledad|Jimena|Isabela|Microsoft)\b/i.test(name)) return 2;
+  if (/^(Paulina|M[oó]nica|Juan|Jorge|Diego|Ang[eé]lica|Marisol|Francisca|Carlos|Soledad|Jimena|Isabela|Samantha|Alex|Daniel|Karen|Moira|Tessa|Ava|Allison|Susan|Tom|Zoe|Evan|Nathan|Microsoft)\b/i.test(name)) return 2;
   return 1;
 };
 
@@ -67,8 +74,10 @@ export const rankVoice = (voices: readonly SpeechSynthesisVoice[], lang: string)
     const i = wanted.indexOf(l);
     return i !== -1 ? i : l === last ? wanted.length + 1 : wanted.length;
   };
-  return voices
-    .filter((voice) => voice.lang.replace('_', '-').toLowerCase().split('-')[0] === base)
+  const candidates = voices.filter((voice) => voice.lang.replace('_', '-').toLowerCase().split('-')[0] === base);
+  const systemVoice = pref?.system ? candidates.find((voice) => voice.default) : undefined;
+  if (systemVoice) return systemVoice;
+  return candidates
     .sort((a, b) => voiceQuality(b) - voiceQuality(a) || region(a) - region(b))[0];
 };
 // Chrome loads voices asynchronously: getVoices() can be empty for the first
