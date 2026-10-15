@@ -26,8 +26,10 @@ const cancelIfBusy = (s: SpeechSynthesis) => {
   if (s.speaking || s.pending) s.cancel();
 };
 
-/** Nearby variants of a language, in order of preference. */
-const VOICE_PREFERENCE: Record<string, string[]> = { es: ['es-MX', 'es-US', 'es-419', 'es-ES'] };
+/** Nearby variants of a language, in order of preference; other regions follow, and the `last` one comes after them. */
+const VOICE_PREFERENCE: Record<string, { first: string[]; last?: string }> = {
+  es: { first: ['es-MX', 'es-US', 'es-419'], last: 'es-ES' },
+};
 
 /**
  * macOS lists its character voices (Eloquence and novelty voices) under every
@@ -36,28 +38,34 @@ const VOICE_PREFERENCE: Record<string, string[]> = { es: ['es-MX', 'es-US', 'es-
  */
 const CHARACTER_VOICES = /^(Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley|Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox)\b/i;
 
-/** Higher is better: neural and downloaded high-quality voices, then Google's, then the rest; character voices last. */
+/**
+ * Higher is better: neural and downloaded high-quality voices (Apple's Enhanced
+ * and Premium, e.g. "Carlos", whose voiceURI reads "com.apple.voice.premium…"),
+ * then Google's, then the standard natural voices; character voices last.
+ */
 const voiceQuality = (voice: SpeechSynthesisVoice) => {
-  const name = voice.name;
+  const { name } = voice;
   if (CHARACTER_VOICES.test(name)) return 0;
-  if (/natural|neural|premium|enhanced|mejorad/i.test(name)) return 4;
+  if (/natural|neural|premium|enhanced|mejorad/i.test(`${name} ${voice.voiceURI ?? ''}`)) return 4;
   if (/^Google\b/i.test(name)) return 3;
-  if (/^(Paulina|M[oó]nica|Juan|Jorge|Diego|Ang[eé]lica|Marisol|Francisca|Microsoft)\b/i.test(name)) return 2;
+  if (/^(Paulina|M[oó]nica|Juan|Jorge|Diego|Ang[eé]lica|Marisol|Francisca|Carlos|Soledad|Jimena|Isabela|Microsoft)\b/i.test(name)) return 2;
   return 1;
 };
 
 /**
  * The best installed voice for a language: the best-sounding voice first, then
- * the closest regional match ("es-MX", then nearby variants), then any voice of
- * that language. Undefined leaves the choice to the browser (it uses `utterance.lang`).
+ * the closest regional match ("es-MX", then nearby variants, other Latin American
+ * regions, and Spain last). Undefined leaves the choice to the browser (it uses `utterance.lang`).
  */
 export const rankVoice = (voices: readonly SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | undefined => {
   const base = lang.split('-')[0].toLowerCase();
-  const wanted = [lang, ...(VOICE_PREFERENCE[base] ?? [])].map((l) => l.toLowerCase());
+  const pref = VOICE_PREFERENCE[base];
+  const wanted = [lang, ...(pref?.first ?? [])].map((l) => l.toLowerCase());
+  const last = pref?.last?.toLowerCase();
   const region = (voice: SpeechSynthesisVoice) => {
     const l = voice.lang.replace('_', '-').toLowerCase();
     const i = wanted.indexOf(l);
-    return i === -1 ? wanted.length : i;
+    return i !== -1 ? i : l === last ? wanted.length + 1 : wanted.length;
   };
   return voices
     .filter((voice) => voice.lang.replace('_', '-').toLowerCase().split('-')[0] === base)
