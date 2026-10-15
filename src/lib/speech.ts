@@ -31,10 +31,12 @@ const cancelIfBusy = (s: SpeechSynthesis) => {
  * and the `last` one comes after them. `system` keeps the computer's default
  * voice when it speaks that language (English sounds as it always has), and
  * ranks the rest only when the default is another language, e.g. a Mac whose
- * system voice was set to a Spanish voice.
+ * system voice was set to a Spanish voice. `voice` names a voice to use above
+ * all others when it is installed (Enhanced first, then Premium, then any
+ * other version); English uses Apple's Evan (Enhanced), chosen by the owner.
  */
-const VOICE_PREFERENCE: Record<string, { first: string[]; last?: string; system?: boolean }> = {
-  en: { first: ['en-US', 'en-GB', 'en-AU', 'en-CA'], system: true },
+const VOICE_PREFERENCE: Record<string, { first: string[]; last?: string; system?: boolean; voice?: string }> = {
+  en: { first: ['en-US', 'en-GB', 'en-AU', 'en-CA'], system: true, voice: 'Evan' },
   es: { first: ['es-MX', 'es-US', 'es-419'], last: 'es-ES' },
 };
 
@@ -75,6 +77,15 @@ export const rankVoice = (voices: readonly SpeechSynthesisVoice[], lang: string)
     return i !== -1 ? i : l === last ? wanted.length + 1 : wanted.length;
   };
   const candidates = voices.filter((voice) => voice.lang.replace('_', '-').toLowerCase().split('-')[0] === base);
+  const named = pref?.voice ? new RegExp(`^${pref.voice}\\b`, 'i') : undefined;
+  const chosen = named && candidates.filter((voice) => named.test(voice.name));
+  if (chosen?.length) {
+    const tier = (voice: SpeechSynthesisVoice) => {
+      const id = `${voice.name} ${voice.voiceURI ?? ''}`;
+      return /enhanced|mejorad/i.test(id) ? 2 : /premium/i.test(id) ? 1 : 0;
+    };
+    return chosen.sort((a, b) => tier(b) - tier(a))[0];
+  }
   const systemVoice = pref?.system ? candidates.find((voice) => voice.default) : undefined;
   if (systemVoice) return systemVoice;
   return candidates
