@@ -58,6 +58,7 @@ const english: BookSet = {
   file: '/BookInfo.xml',
   variations: bookVariations,
   requiredPrefix: () => '',
+  speechLang: 'en-US',
   speechRate: 1.5,
   // "2 Kings 6:3" -> "second Kings 6 verse 3". Only a book number is an ordinal.
   spoken: (prompt) =>
