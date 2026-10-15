@@ -12,7 +12,8 @@ import { useEffect, useRef } from 'react';
  * static centred highlight on focus.
  */
 export function useSpotlight<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+  // `T | null` makes the ref mutable, so components can share it with a forwarded ref.
+  const ref = useRef<T | null>(null);
 
   useEffect(() => {
     const el = ref.current;
