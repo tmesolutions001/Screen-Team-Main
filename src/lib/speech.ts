@@ -26,12 +26,43 @@ const cancelIfBusy = (s: SpeechSynthesis) => {
   if (s.speaking || s.pending) s.cancel();
 };
 
-/**
- * The best installed voice for a language: an exact match ("es-MX"), then
- * nearby variants in order of preference, then any voice of that language.
- * Undefined leaves the choice to the browser (it uses `utterance.lang`).
- */
+/** Nearby variants of a language, in order of preference. */
 const VOICE_PREFERENCE: Record<string, string[]> = { es: ['es-MX', 'es-US', 'es-419', 'es-ES'] };
+
+/**
+ * macOS lists its character voices (Eloquence and novelty voices) under every
+ * language, alphabetically ahead of the natural ones, so in Chrome on a Mac the
+ * first "es-MX" voice is a robotic "Eddy" or "Grandma".
+ */
+const CHARACTER_VOICES = /^(Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley|Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox)\b/i;
+
+/** Higher is better: neural and downloaded high-quality voices, then Google's, then the rest; character voices last. */
+const voiceQuality = (voice: SpeechSynthesisVoice) => {
+  const name = voice.name;
+  if (CHARACTER_VOICES.test(name)) return 0;
+  if (/natural|neural|premium|enhanced|mejorad/i.test(name)) return 4;
+  if (/^Google\b/i.test(name)) return 3;
+  if (/^(Paulina|M[oó]nica|Juan|Jorge|Diego|Ang[eé]lica|Marisol|Francisca|Microsoft)\b/i.test(name)) return 2;
+  return 1;
+};
+
+/**
+ * The best installed voice for a language: the best-sounding voice first, then
+ * the closest regional match ("es-MX", then nearby variants), then any voice of
+ * that language. Undefined leaves the choice to the browser (it uses `utterance.lang`).
+ */
+export const rankVoice = (voices: readonly SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | undefined => {
+  const base = lang.split('-')[0].toLowerCase();
+  const wanted = [lang, ...(VOICE_PREFERENCE[base] ?? [])].map((l) => l.toLowerCase());
+  const region = (voice: SpeechSynthesisVoice) => {
+    const l = voice.lang.replace('_', '-').toLowerCase();
+    const i = wanted.indexOf(l);
+    return i === -1 ? wanted.length : i;
+  };
+  return voices
+    .filter((voice) => voice.lang.replace('_', '-').toLowerCase().split('-')[0] === base)
+    .sort((a, b) => voiceQuality(b) - voiceQuality(a) || region(a) - region(b))[0];
+};
 // Chrome loads voices asynchronously: getVoices() can be empty for the first
 // prompt. Keep a copy that refreshes when the list arrives or changes.
 let voiceList: SpeechSynthesisVoice[] = [];
@@ -44,14 +75,7 @@ refreshVoices();
 
 const pickVoice = (s: SpeechSynthesis, lang: string): SpeechSynthesisVoice | undefined => {
   if (!voiceList.length) refreshVoices();
-  const voices = voiceList.length ? voiceList : s.getVoices();
-  const base = lang.split('-')[0];
-  const wanted = [lang, ...(VOICE_PREFERENCE[base] ?? [])].map((l) => l.toLowerCase());
-  for (const l of wanted) {
-    const v = voices.find((voice) => voice.lang.replace('_', '-').toLowerCase() === l);
-    if (v) return v;
-  }
-  return voices.find((voice) => voice.lang.toLowerCase().startsWith(base));
+  return rankVoice(voiceList.length ? voiceList : s.getVoices(), lang);
 };
 
 const fire = (gen: number, text: string, rate: number, retry: boolean, lang?: string) => {
