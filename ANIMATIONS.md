@@ -10,14 +10,108 @@ or changing anything that moves.
 > reversible. If a user changes state mid-animation, it must seamlessly reverse without lag,
 > blocking or jank. Use spring physics for state-driven animations.
 
-Every rule below serves that sentence. In practice it means three promises to the operator:
+Every rule below serves that sentence. In practice it means four promises to the operator:
 
-1. **Never wait.** No click, keypress or navigation is ever queued behind an animation. Input
+1. **Never instant.** Nothing on screen changes in a single frame. See the rule below.
+2. **Never wait.** No click, keypress or navigation is ever queued behind an animation. Input
    always lands immediately; motion catches up.
-2. **Never snap.** Changing your mind mid-animation continues from exactly where the element is,
+3. **Never snap.** Changing your mind mid-animation continues from exactly where the element is,
    at the speed it was moving. Nothing restarts from zero, nothing jumps.
-3. **Never distract.** Motion is subtle and short. It explains a change (where something came from,
+4. **Never distract.** Motion is subtle and short. It explains a change (where something came from,
    what just happened) and then gets out of the way. These tools are used live, in the booth.
+
+## The rule: nothing changes instantly
+
+**Every visible change animates.** If something on screen looks different from one moment to the
+next, the eye must see it travel there. There is no such thing as a change that "just happens".
+
+This covers:
+
+- **Colour and state changes**: hover, press, focus, selected, active, disabled, correct and
+  wrong. A button never jumps from one colour to another; it fades (CSS
+  `transition-colors duration-200` is the minimum) or springs.
+- **Pages**: every route change cross-fades through `pageVariants`. No page ever replaces another
+  in one frame, including redirects and "back" links.
+- **Popups and overlays**: popovers, the title prompt, toasts, dialogs and menus grow in and out
+  (scale, opacity, a small rise). Nothing pops into existence, and nothing vanishes on close.
+- **Text that changes**: labels, counters, scores and language switches blur or count between
+  values (`blurText`, `SwapText`, `CountUp`); they are never swapped in place.
+- **Things appearing and disappearing**: rows, warnings, icons, badges and sections enter and
+  leave with the shared vocabulary (blur-in, settle, grow). Lists grow with `rowReveal` so what is
+  below glides instead of jumping.
+- **Layout shifts**: if adding or removing something moves its neighbours, the neighbours animate
+  too (height or `layout`), never jump.
+
+If you are about to write a conditional render, a class swap or a style change, ask "what does
+the eye see in between?". If the answer is "nothing", it needs an animation.
+
+**Speed is not an exception.** "Instant" is about how a change *looks*, not how fast input lands.
+Input always lands immediately (see *Never wait*); the visual change then animates, briefly. A
+fast animation (150ms) is fine; a missing one is not.
+
+**Allowed exceptions** are deliberate, rare, and listed here with their reason. Add to this list
+only with the owner's approval:
+
+| Instant change | Why |
+|---|---|
+| Deleting typed letters in a round's answer field | Rapid typing and corrections must never wait on an exit animation; new letters still blur in. |
+| The text caret and the browser's native text selection | They belong to the browser and must track the keyboard exactly. |
+
+Under reduced motion, movement becomes a short opacity fade. That is still an animation: reduced
+motion never turns a change instant.
+
+## The default animation: the grain glow
+
+**When a request doesn't say how something should animate, use the grain glow.** It is the app's
+signature effect, and the first thing to reach for whenever an action needs visible feedback and no
+other animation has been asked for.
+
+### What it looks like
+
+A ring of colour grows out of the control that was pressed and sweeps across the surrounding area,
+past its farthest corner. The ring is masked by fine, drifting grain noise, so it reads as a wave
+of sparkles, a shimmer of light, rather than a solid shape. Inside the ring there is a faint wash of
+the same colour. It is blended with `screen`, so it brightens what it passes over without hiding
+it, and it fades out as it reaches the edge. The whole sweep takes about 950ms on a fast-out
+curve: it leaves the button quickly and slows as it spreads.
+
+### Where it's used today
+
+- **Edit / Save** in the Song Formatter: an accent-purple wave on Edit, a green wave on Save,
+  sweeping across the formatted output.
+- **The language pill** on the simulator menu: purple for English, green for Español, sweeping
+  the whole page.
+
+### How to use it
+
+- Use the `GrainWaves` component (`src/components/GrainWaves.tsx`). Place it inside the area the
+  wave should sweep (it fills and clips to its positioned parent, or use `className="fixed z-40"`
+  in a portal to sweep the whole page) and call `fire(color, buttonElement)` on each press.
+- **Colour carries meaning**: `accent` (purple) for neutral actions, entering a mode and English;
+  `ok` (green) for confirming, saving and Español. Add a new colour to `WaveColor` only when it
+  means something new.
+- **Origin**: always fire from the control that caused it, so the wave visibly comes from the
+  user's action.
+- **Layered, never queued**: each press mounts its own wave (the last six are kept) and each
+  removes itself on `animationend`. Spam-clicking produces overlapping waves, never a stutter.
+- **Source of truth stays outside**: read the state from a ref or store at the moment of the click
+  to pick the colour, so the wave always matches the state even under spam-clicking.
+- **Reduced motion**: the sweep becomes a simple colour fade (CSS `grain-wave-fade`).
+
+### When it is the default, and when it isn't
+
+The grain glow is the default for **actions**: a press that commits, saves, switches a mode or
+language, confirms, or copies. If a new button or toggle is added and nobody specified its
+animation, it gets a grain glow (in addition to the standard hover and press feedback).
+
+It does **not** replace the base vocabulary for things entering and leaving: a popup still grows
+in, a page still cross-fades, text still blurs in. When something appears *because* of an action,
+the grain glow can accompany the entrance. It is not used for:
+
+- hover (too frequent: it would never stop sparkling);
+- every keystroke while typing, or every answer during a round (the round has its own feedback
+  glow on the score and answer field);
+- scrolling or passive updates nobody triggered.
 
 ## Philosophy
 
@@ -36,7 +130,8 @@ content, it's too much.
 
 **One vocabulary.** The same few motions recur everywhere, so the app feels like one thing:
 text *resolves* out of a blur, panels *settle* in with a slight scale, lists *grow* into place,
-feedback *glows* and fades. A new feature should reuse these, not invent a sixth.
+feedback *glows* and fades, and actions *sweep* a grain glow outwards. A new feature should reuse
+these, not invent a sixth.
 
 **Never block the main thread or the user.** Prefer compositor-only properties (opacity,
 transform), update hot paths without React re-renders, and clean up after every effect.
@@ -190,6 +285,9 @@ Feedback is never lost under reduced motion; only movement is removed.
 
 ## Checklist for new motion
 
+0. Does **every visible change** animate? No colour, page, popup, text or element may change in a
+   single frame unless it is in the exceptions table. No animation specified? Use the **grain
+   glow** for actions.
 1. Is it **state-driven**? Use a preset spring from `lib/motion.ts`, not inline numbers.
 2. Can it be **toggled quickly**? Animate between states on one element; don't unmount mid-flight.
 3. Is it an **event that can repeat**? Layer short-lived elements, or replace the running animation.

@@ -77,6 +77,12 @@ npx tsc -p tsconfig.app.json --noEmit   # typecheck (the build does not typechec
 Animations must be clean, interruptible and fully reversible: changing state mid-animation
 continues smoothly from where things are, never waiting, snapping or queueing.
 
+- **Nothing changes instantly.** Every visible change animates: colours and hover states, pages,
+  popups, text, things appearing, disappearing or moving. The only exceptions are listed in
+  `ANIMATIONS.md` (deleting typed letters, the caret); add to them only with the owner's approval.
+- **No animation specified? Use the grain glow** (`GrainWaves`) for actions: a sparkle-grain ring
+  that sweeps out from the pressed control, purple (`accent`) for neutral, green (`ok`) for confirm.
+
 - Use the presets in `src/lib/motion.ts` (`springs.snappy|smooth|gentle`, `blurText`, `rowReveal`,
   `swapProps`, `pageVariants`, stagger variants). Don't inline new spring numbers.
 - Springs for state; short tweens only for blur and opacity (which must not overshoot) and for
